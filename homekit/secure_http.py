@@ -85,44 +85,49 @@ class SecureHttp:
         # following the information from page 71 about HTTP Message splitting:
         # The blocks start with 2 byte little endian defining the length of the encrypted data (max 1024 bytes)
         # followed by 16 byte authTag
-        blocks = []
         tmp = bytearray()
+        result = bytearray()
         exp_len = 512
         while True:
             data = self.sock.recv(exp_len)
-            tmp += data
-            length = int.from_bytes(tmp[0:2], 'little')
-            if length + 18 > len(tmp):
-                # if the the amount of data in tmp is not length + 2 bytes for length + 16 bytes for the tag, the block
-                # is not complete yet
-                continue
-            tmp = tmp[2:]
-
-            block = tmp[0:length]
-            tmp = tmp[length:]
-
-            tag = tmp[0:16]
-            tmp = tmp[16:]
-
-            blocks.append((length, block, tag))
-
-            # check how long next block will be
-            if int.from_bytes(tmp[0:2], 'little') < 1024:
-                exp_len = int.from_bytes(tmp[0:2], 'little') - len(tmp) + 18
-
-            if length < 1024:
+            if not data:
                 break
 
-        # now decrypt the blocks and assemble the answer to our request
-        result = bytearray()
-        for b in blocks:
-            tmp = chacha20_aead_decrypt(b[0].to_bytes(2, byteorder='little'),
-                                        self.a2c_key,
-                                        self.a2c_counter.to_bytes(8, byteorder='little'),
-                                        bytes([0, 0, 0, 0]), b[1] + b[2])
-            if tmp is not False:
-                result += tmp
-            self.a2c_counter += 1
+            if len(data) < 2:
+                continue
+
+            tmp += data
+            length = int.from_bytes(tmp[0:2], 'little')
+
+            # if the the amount of data in tmp is not length + 2 bytes for length + 16 bytes for the tag, the block
+            # is not complete yet
+            while len(tmp) >= length + 18:
+                tmp = tmp[2:]
+
+                block = tmp[0:length]
+                tmp = tmp[length:]
+
+                tag = tmp[0:16]
+                tmp = tmp[16:]
+
+                # Decrypt this block
+                dec = chacha20_aead_decrypt(length.to_bytes(2, byteorder='little'),
+                                            self.a2c_key,
+                                            self.a2c_counter.to_bytes(8, byteorder='little'),
+                                            bytes([0, 0, 0, 0]), block + tag)
+                if dec is not False:
+                    result += dec
+                self.a2c_counter += 1
+
+                # check how long next block will be
+                if len(tmp) >= 2 and int.from_bytes(tmp[0:2], 'little') <= 1024:
+                    length = int.from_bytes(tmp[0:2], 'little')
+                else:
+                    length = 0
+
+            # TODO: check for end of HTTP response the right way
+            if result.endswith(b'\r\n0\r\n\r\n'):
+                break
 
         #
         #   I expected a full http response but the first real homekit accessory (Koogeek-P1) just replies with body
