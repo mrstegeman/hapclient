@@ -1,8 +1,8 @@
-from homekit.model.characteristics import CharacteristicsTypes
-from homekit.model.mixin import ToDictMixin, get_id
-from homekit.model.services import AcessoryInformationService, LightBulbService, OutletService, FanService, \
-    ThermostatService
-from homekit.model.categories import Categories
+from .characteristics import CharacteristicsTypes
+from .mixin import ToDictMixin, get_id
+from .services import (AcessoryInformationService, LightBulbService,
+                       OutletService, FanService, ThermostatService)
+from .categories import Categories
 
 
 class Accessory(ToDictMixin):

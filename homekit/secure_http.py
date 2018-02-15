@@ -1,9 +1,11 @@
+from nacl.bindings import (crypto_aead_chacha20poly1305_ietf_encrypt,
+                           crypto_aead_chacha20poly1305_ietf_decrypt)
 import fcntl
-import os
-import io
 import http.client
+import io
+import os
 
-from homekit.chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
+from .pyparser import HttpParser
 
 
 class SecureHttp:
@@ -65,8 +67,12 @@ class SecureHttp:
         len_bytes = len(data).to_bytes(2, byteorder='little')
         cnt_bytes = self.c2a_counter.to_bytes(8, byteorder='little')
         self.c2a_counter += 1
-        ciper_and_mac = chacha20_aead_encrypt(len_bytes, self.c2a_key, cnt_bytes, bytes([0, 0, 0, 0]), data.encode())
-        self.sock.send(len_bytes + ciper_and_mac[0] + ciper_and_mac[1])
+        ciphertext = crypto_aead_chacha20poly1305_ietf_encrypt(
+            data.encode(),
+            len_bytes,
+            bytes([0, 0, 0, 0]) + cnt_bytes,
+            self.c2a_key)
+        self.sock.send(len_bytes + ciphertext)
         return self._handle_response()
 
     @staticmethod
@@ -85,44 +91,55 @@ class SecureHttp:
         # following the information from page 71 about HTTP Message splitting:
         # The blocks start with 2 byte little endian defining the length of the encrypted data (max 1024 bytes)
         # followed by 16 byte authTag
-        blocks = []
         tmp = bytearray()
+        result = bytearray()
         exp_len = 512
         while True:
             data = self.sock.recv(exp_len)
-            tmp += data
-            length = int.from_bytes(tmp[0:2], 'little')
-            if length + 18 > len(tmp):
-                # if the the amount of data in tmp is not length + 2 bytes for length + 16 bytes for the tag, the block
-                # is not complete yet
-                continue
-            tmp = tmp[2:]
-
-            block = tmp[0:length]
-            tmp = tmp[length:]
-
-            tag = tmp[0:16]
-            tmp = tmp[16:]
-
-            blocks.append((length, block, tag))
-
-            # check how long next block will be
-            if int.from_bytes(tmp[0:2], 'little') < 1024:
-                exp_len = int.from_bytes(tmp[0:2], 'little') - len(tmp) + 18
-
-            if length < 1024:
+            if not data:
                 break
 
-        # now decrypt the blocks and assemble the answer to our request
-        result = bytearray()
-        for b in blocks:
-            tmp = chacha20_aead_decrypt(b[0].to_bytes(2, byteorder='little'),
-                                        self.a2c_key,
-                                        self.a2c_counter.to_bytes(8, byteorder='little'),
-                                        bytes([0, 0, 0, 0]), b[1] + b[2])
-            if tmp is not False:
-                result += tmp
-            self.a2c_counter += 1
+            if len(data) < 2:
+                continue
+
+            tmp += data
+            length = int.from_bytes(tmp[0:2], 'little')
+
+            # if the the amount of data in tmp is not length + 2 bytes for length + 16 bytes for the tag, the block
+            # is not complete yet
+            while len(tmp) >= length + 18:
+                tmp = tmp[2:]
+
+                block = tmp[0:length]
+                tmp = tmp[length:]
+
+                tag = tmp[0:16]
+                tmp = tmp[16:]
+
+                # Decrypt this block
+                dec = crypto_aead_chacha20poly1305_ietf_decrypt(
+                    bytes(block + tag),
+                    length.to_bytes(2, byteorder='little'),
+                    bytes([0, 0, 0, 0]) + self.a2c_counter.to_bytes(8, byteorder='little'),
+                    self.a2c_key)
+                if dec is not False:
+                    result += dec
+                self.a2c_counter += 1
+
+                # check how long next block will be
+                if len(tmp) >= 2 and int.from_bytes(tmp[0:2], 'little') <= 1024:
+                    length = int.from_bytes(tmp[0:2], 'little')
+                else:
+                    length = 0
+
+            if result.startswith(b'HTTP/1.1'):
+                parser = HttpParser()
+                ret = parser.execute(result, len(result))
+                if ret == len(result) and parser.is_message_complete():
+                    break
+            else:
+                if result.endswith(b'\r\n0\r\n\r\n'):
+                    break
 
         #
         #   I expected a full http response but the first real homekit accessory (Koogeek-P1) just replies with body

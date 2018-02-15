@@ -1,12 +1,16 @@
-import sys
-import hkdf
-import hashlib
-import ed25519
-import py25519
 from binascii import hexlify
-from homekit.tlv import TLV
-from homekit.srp import SrpClient
-from homekit.chacha20poly1305 import chacha20_aead_decrypt, chacha20_aead_encrypt
+from nacl.bindings import (crypto_aead_chacha20poly1305_ietf_encrypt,
+                           crypto_aead_chacha20poly1305_ietf_decrypt,
+                           crypto_scalarmult)
+from nacl.exceptions import BadSignatureError
+from nacl.public import Box, PrivateKey, PublicKey
+from nacl.signing import SigningKey, VerifyKey
+import hashlib
+import hkdf
+import sys
+
+from .srp import SrpClient
+from .tlv import TLV
 
 
 def perform_pair_setup(connection, pin, ios_pairing_id):
@@ -85,7 +89,8 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     # M5 Request generation (page 44)
     session_key = srp_client.get_session_key()
 
-    ios_device_ltsk, ios_device_ltpk = ed25519.create_keypair()
+    ios_device_ltsk = SigningKey.generate()
+    ios_device_ltpk = ios_device_ltsk.verify_key
 
     # reversed:
     #   Pair-Setup-Encrypt-Salt instead of Pair-Setup-Controller-Sign-Salt
@@ -99,13 +104,13 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     session_key = hkdf_inst.expand('Pair-Setup-Encrypt-Info'.encode(), 32)
 
     ios_device_pairing_id = ios_pairing_id.encode()
-    ios_device_info = ios_device_x + ios_device_pairing_id + ios_device_ltpk.to_bytes()
+    ios_device_info = ios_device_x + ios_device_pairing_id + bytes(ios_device_ltpk)
 
-    ios_device_signature = ios_device_ltsk.sign(ios_device_info)
+    ios_device_signature = ios_device_ltsk.sign(ios_device_info).signature
 
     sub_tlv = {
         TLV.kTLVType_Identifier: ios_device_pairing_id,
-        TLV.kTLVType_PublicKey: ios_device_ltpk.to_bytes(),
+        TLV.kTLVType_PublicKey: bytes(ios_device_ltpk),
         TLV.kTLVType_Signature: ios_device_signature
     }
     sub_tlv_b = TLV.encode_dict(sub_tlv)
@@ -113,10 +118,12 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     # taking tge iOSDeviceX as key was reversed from
     # https://github.com/KhaosT/HAP-NodeJS/blob/2ea9d761d9bd7593dd1949fec621ab085af5e567/lib/HAPServer.js
     # function handlePairStepFive calling encryption.encryptAndSeal
-    encrypted_data_with_auth_tag = chacha20_aead_encrypt(bytes(), session_key, 'PS-Msg05'.encode(), bytes([0, 0, 0, 0]),
-                                                         sub_tlv_b)
-    tmp = bytearray(encrypted_data_with_auth_tag[0])
-    tmp += encrypted_data_with_auth_tag[1]
+    ciphertext = crypto_aead_chacha20poly1305_ietf_encrypt(
+        bytes(sub_tlv_b),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PS-Msg05'.encode(),
+        session_key)
+    tmp = ciphertext
 
     response_tlv = {
         TLV.kTLVType_State: TLV.M5,
@@ -138,16 +145,21 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
         elif response_tlv[TLV.kTLVType_Error] == TLV.kTLVError_MaxPeers:
             print('Step #7: kTLVError_MaxPeers!')
         else:
+            print(response_tlv[TLV.kTLVType_Error])
             print('Step #7: unkown error!')
         sys.exit(-1)
 
     assert TLV.kTLVType_EncryptedData in response_tlv
-    decrypted_data = chacha20_aead_decrypt(bytes(), session_key, 'PS-Msg06'.encode(), bytes([0, 0, 0, 0]),
-                                           response_tlv[TLV.kTLVType_EncryptedData])
+    decrypted_data = crypto_aead_chacha20poly1305_ietf_decrypt(
+        bytes(response_tlv[TLV.kTLVType_EncryptedData]),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PS-Msg06'.encode(),
+        session_key)
     if decrypted_data == False:
         print('Step #7: Abort because of illegal data')
         sys.exit(-1)
 
+    decrypted_data = bytearray(decrypted_data)
     response_tlv = TLV.decode_bytearray(decrypted_data)
     assert TLV.kTLVType_Signature in response_tlv
     accessory_sig = response_tlv[TLV.kTLVType_Signature]
@@ -164,15 +176,15 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
 
     accessory_info = accessory_x + accessory_pairing_id + accessory_ltpk
 
-    e25519s = ed25519.VerifyingKey(bytes(response_tlv[TLV.kTLVType_PublicKey]))
-    e25519s.verify(bytes(accessory_sig), bytes(accessory_info))
+    e25519s = VerifyKey(bytes(response_tlv[TLV.kTLVType_PublicKey]))
+    e25519s.verify(bytes(accessory_info), bytes(accessory_sig))
 
     return {
         'AccessoryPairingID': response_tlv[TLV.kTLVType_Identifier].decode(),
         'AccessoryLTPK': hexlify(response_tlv[TLV.kTLVType_PublicKey]).decode(),
         'iOSPairingId': ios_pairing_id,
-        'iOSDeviceLTSK': ios_device_ltsk.to_ascii(encoding='hex').decode(),
-        'iOSDeviceLTPK': hexlify(ios_device_ltpk.to_bytes()).decode()
+        'iOSDeviceLTSK': hexlify(bytes(ios_device_ltsk)).decode(),
+        'iOSDeviceLTPK': hexlify(bytes(ios_device_ltpk)).decode(),
     }
 
 
@@ -184,17 +196,21 @@ def get_session_keys(conn, pairing_data):
     :param pairing_data: the paring data as returned by perform_pair_setup
     :return: tuple of the session keys (controller_to_accessory_key and  accessory_to_controller_key)
     """
+    headers = {
+        'Content-Type': 'application/pairing+tlv8'
+    }
+
     #
     # Step #1 ios --> accessory (send verify start Request) (page 47)
     #
-    ios_key = py25519.Key25519()
+    ios_key = PrivateKey.generate()
 
     request_tlv = TLV.encode_dict({
         TLV.kTLVType_State: TLV.M1,
-        TLV.kTLVType_PublicKey: ios_key.pubkey
+        TLV.kTLVType_PublicKey: bytes(ios_key.public_key),
     })
 
-    conn.request('POST', '/pair-verify', request_tlv)
+    conn.request('POST', '/pair-verify', request_tlv, headers)
     resp = conn.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
@@ -207,9 +223,10 @@ def get_session_keys(conn, pairing_data):
     assert TLV.kTLVType_EncryptedData in response_tlv, response_tlv
 
     # 1) generate shared secret
-    accessorys_session_pub_key_bytes = response_tlv[TLV.kTLVType_PublicKey]
-    shared_secret = ios_key.get_ecdh_key(
-        py25519.Key25519(pubkey=bytes(accessorys_session_pub_key_bytes), verifyingkey=bytes()))
+    accessorys_session_pub_key_bytes = bytes(response_tlv[TLV.kTLVType_PublicKey])
+    shared_secret = crypto_scalarmult(
+        bytes(ios_key),
+        bytes(PublicKey(accessorys_session_pub_key_bytes)))
 
     # 2) derive session key
     hkdf_inst = hkdf.Hkdf('Pair-Verify-Encrypt-Salt'.encode(), shared_secret, hash=hashlib.sha512)
@@ -217,8 +234,11 @@ def get_session_keys(conn, pairing_data):
 
     # 3) verify authtag on encrypted data and 4) decrypt
     encrypted = response_tlv[TLV.kTLVType_EncryptedData]
-    decrypted = chacha20_aead_decrypt(bytes(), session_key, 'PV-Msg02'.encode(), bytes([0, 0, 0, 0]),
-                                      encrypted)
+    decrypted = crypto_aead_chacha20poly1305_ietf_decrypt(
+        bytes(encrypted),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PV-Msg02'.encode(),
+        session_key)
     if decrypted == False:
         print('Step #3: authtag was wrong')
         sys.exit(-1)
@@ -233,23 +253,25 @@ def get_session_keys(conn, pairing_data):
         print('Step #3: No pair_setup was performed (or wrong pairing file)')
         sys.exit(-1)
 
-    accessory_ltpk = py25519.Key25519(pubkey=bytes(), verifyingkey=bytes.fromhex(pairing_data['AccessoryLTPK']))
+    accessory_ltpk = VerifyKey(bytes.fromhex(pairing_data['AccessoryLTPK']))
 
     # 6) verify accessory's signature
     accessory_sig = d1[TLV.kTLVType_Signature]
     accessory_session_pub_key_bytes = response_tlv[TLV.kTLVType_PublicKey]
-    accessory_info = accessory_session_pub_key_bytes + accessory_name.encode() + ios_key.pubkey
-    if not accessory_ltpk.verify(bytes(accessory_sig), bytes(accessory_info)):
+    accessory_info = accessory_session_pub_key_bytes + accessory_name.encode() + bytes(ios_key.public_key)
+    try:
+        accessory_ltpk.verify(bytes(accessory_info), bytes(accessory_sig))
+    except BadSignatureError:
         print('Step #3: Signature was invalid')
         sys.exit(-1)
 
     # 7) create iOSDeviceInfo
-    ios_device_info = ios_key.pubkey + pairing_data['iOSPairingId'].encode() + accessorys_session_pub_key_bytes
+    ios_device_info = bytes(ios_key.public_key) + pairing_data['iOSPairingId'].encode() + accessorys_session_pub_key_bytes
 
     # 8) sign iOSDeviceInfo with long term secret key
     ios_device_ltsk_h = pairing_data['iOSDeviceLTSK']
-    ios_device_ltsk = py25519.Key25519(secretkey=bytes.fromhex(ios_device_ltsk_h))
-    ios_device_signature = ios_device_ltsk.sign(ios_device_info)
+    ios_device_ltsk = SigningKey(bytes.fromhex(ios_device_ltsk_h))
+    ios_device_signature = ios_device_ltsk.sign(ios_device_info).signature
 
     # 9) construct sub tlv
     sub_tlv = TLV.encode_dict({
@@ -258,10 +280,12 @@ def get_session_keys(conn, pairing_data):
     })
 
     # 10) encrypt and sign
-    encrypted_data_with_auth_tag = chacha20_aead_encrypt(bytes(), session_key, 'PV-Msg03'.encode(), bytes([0, 0, 0, 0]),
-                                                         sub_tlv)
-    tmp = bytearray(encrypted_data_with_auth_tag[0])
-    tmp += encrypted_data_with_auth_tag[1]
+    ciphertext = crypto_aead_chacha20poly1305_ietf_encrypt(
+        bytes(sub_tlv),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PV-Msg03'.encode(),
+        session_key)
+    tmp = ciphertext
 
     # 11) create tlv
     request_tlv = TLV.encode_dict({
@@ -270,7 +294,7 @@ def get_session_keys(conn, pairing_data):
     })
 
     # 12) send to accessory
-    conn.request('POST', '/pair-verify', request_tlv)
+    conn.request('POST', '/pair-verify', request_tlv, headers)
     resp = conn.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 

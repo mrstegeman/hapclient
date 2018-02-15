@@ -1,4 +1,4 @@
-from homekit.model.mixin import ToDictMixin, get_id
+from .mixin import ToDictMixin, get_id
 
 
 class _CharacteristicsTypes(object):
