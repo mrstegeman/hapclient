@@ -3,7 +3,6 @@ from .model import (categories, services)
 from .chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
 from .protocol import perform_pair_setup, get_session_keys
 from .secure_http import SecureHttp
-from .server import HomeKitServer
 from .srp import SrpClient
 from .tlv import TLV
 from .tools import load_pairing, save_pairing
