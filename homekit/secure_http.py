@@ -3,7 +3,7 @@ import os
 import io
 import http.client
 
-from homekit.chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
+from .chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
 
 
 class SecureHttp:

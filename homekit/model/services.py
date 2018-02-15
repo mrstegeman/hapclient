@@ -1,4 +1,4 @@
-from homekit.model.characteristics import *
+from .characteristics import *
 
 
 class _ServicesTypes(object):

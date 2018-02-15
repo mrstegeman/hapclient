@@ -5,9 +5,9 @@ import socket
 import sys
 import logging
 
-from homekit.serverdata import HomeKitServerData
-from homekit.request_handler import HomeKitRequestHandler
-from homekit.model import Accessories, Categories
+from .serverdata import HomeKitServerData
+from .request_handler import HomeKitRequestHandler
+from .model import Accessories, Categories
 
 
 class HomeKitServer(ThreadingMixIn, HTTPServer):

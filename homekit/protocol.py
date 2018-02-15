@@ -4,9 +4,10 @@ import hashlib
 import ed25519
 import py25519
 from binascii import hexlify
-from homekit.tlv import TLV
-from homekit.srp import SrpClient
-from homekit.chacha20poly1305 import chacha20_aead_decrypt, chacha20_aead_encrypt
+
+from .tlv import TLV
+from .srp import SrpClient
+from .chacha20poly1305 import chacha20_aead_decrypt, chacha20_aead_encrypt
 
 
 def perform_pair_setup(connection, pin, ios_pairing_id):

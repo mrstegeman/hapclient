@@ -10,11 +10,10 @@ import sys
 import socket
 import select
 
-from homekit.tlv import TLV
-from homekit.srp import SrpServer
-from homekit.chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
-from homekit.statuscodes import HttpStatusCodes
-from homekit.statuscodes import HapStatusCodes
+from .tlv import TLV
+from .srp import SrpServer
+from .chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
+from .statuscodes import HapStatusCodes, HttpStatusCodes
 
 
 def bytes_to_mpz(input_bytes):
