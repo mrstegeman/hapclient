@@ -1,9 +1,9 @@
 import sys
 import hkdf
 import hashlib
-import ed25519
 import py25519
 from binascii import hexlify
+from pure25519 import ed25519_oop as ed25519
 
 from .tlv import TLV
 from .srp import SrpClient
