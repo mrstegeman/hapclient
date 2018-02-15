@@ -1,6 +1,6 @@
 from socket import inet_ntoa
 from time import sleep
-from zeroconf import ServiceBrowser, Zeroconf
+from zeroconf import ServiceBrowser, Zeroconf, InterfaceChoice
 
 from .feature_flags import FeatureFlags
 from .model.categories import Categories
@@ -23,7 +23,7 @@ class CollectingListener(object):
 
 
 def discover_homekit_devices():
-    zeroconf = Zeroconf()
+    zeroconf = Zeroconf(interfaces=InterfaceChoice.Default)
     listener = CollectingListener()
     ServiceBrowser(zeroconf, '_hap._tcp.local.', listener)
     sleep(1)
