@@ -12,10 +12,8 @@ setup(
     keywords=['HomeKit'],  # arbitrary keywords
     classifiers=[],
     install_requires=[
-        'zeroconf',
-        'gmpy2',
-        'py25519',
         'hkdf',
-        'ed25519',
+        'pynacl',
+        'zeroconf',
     ],
 )

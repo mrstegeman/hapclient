@@ -1,10 +1,9 @@
+from nacl.bindings import (crypto_aead_chacha20poly1305_ietf_encrypt,
+                           crypto_aead_chacha20poly1305_ietf_decrypt)
 import fcntl
-import os
-import io
 import http.client
-from nacl.bindings import (
-    crypto_aead_chacha20poly1305_ietf_encrypt as chacha20_aead_encrypt,
-    crypto_aead_chacha20poly1305_ietf_decrypt as chacha20_aead_decrypt)
+import io
+import os
 
 from .pyparser import HttpParser
 
@@ -68,7 +67,11 @@ class SecureHttp:
         len_bytes = len(data).to_bytes(2, byteorder='little')
         cnt_bytes = self.c2a_counter.to_bytes(8, byteorder='little')
         self.c2a_counter += 1
-        ciphertext = chacha20_aead_encrypt(data.encode(), len_bytes, bytes([0, 0, 0, 0]) + cnt_bytes, self.c2a_key)
+        ciphertext = crypto_aead_chacha20poly1305_ietf_encrypt(
+            data.encode(),
+            len_bytes,
+            bytes([0, 0, 0, 0]) + cnt_bytes,
+            self.c2a_key)
         self.sock.send(len_bytes + ciphertext)
         return self._handle_response()
 
@@ -114,10 +117,11 @@ class SecureHttp:
                 tmp = tmp[16:]
 
                 # Decrypt this block
-                dec = chacha20_aead_decrypt(bytes(block + tag),
-                                            length.to_bytes(2, byteorder='little'),
-                                            bytes([0, 0, 0, 0]) + self.a2c_counter.to_bytes(8, byteorder='little'),
-                                            self.a2c_key)
+                dec = crypto_aead_chacha20poly1305_ietf_decrypt(
+                    bytes(block + tag),
+                    length.to_bytes(2, byteorder='little'),
+                    bytes([0, 0, 0, 0]) + self.a2c_counter.to_bytes(8, byteorder='little'),
+                    self.a2c_key)
                 if dec is not False:
                     result += dec
                 self.a2c_counter += 1

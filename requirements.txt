@@ -1,4 +1,3 @@
-zeroconf
-py25519
 hkdf
 pynacl
+zeroconf
