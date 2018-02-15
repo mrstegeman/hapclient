@@ -4,10 +4,12 @@ import hashlib
 import py25519
 from binascii import hexlify
 from nacl.signing import SigningKey, VerifyKey
+from nacl.bindings import (
+    crypto_aead_chacha20poly1305_ietf_encrypt as chacha20_aead_encrypt,
+    crypto_aead_chacha20poly1305_ietf_decrypt as chacha20_aead_decrypt)
 
 from .tlv import TLV
 from .srp import SrpClient
-from .chacha20poly1305 import chacha20_aead_decrypt, chacha20_aead_encrypt
 
 
 def perform_pair_setup(connection, pin, ios_pairing_id):
@@ -115,10 +117,12 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     # taking tge iOSDeviceX as key was reversed from
     # https://github.com/KhaosT/HAP-NodeJS/blob/2ea9d761d9bd7593dd1949fec621ab085af5e567/lib/HAPServer.js
     # function handlePairStepFive calling encryption.encryptAndSeal
-    encrypted_data_with_auth_tag = chacha20_aead_encrypt(bytes(), session_key, 'PS-Msg05'.encode(), bytes([0, 0, 0, 0]),
-                                                         sub_tlv_b)
-    tmp = bytearray(encrypted_data_with_auth_tag[0])
-    tmp += encrypted_data_with_auth_tag[1]
+    ciphertext = chacha20_aead_encrypt(
+        bytes(sub_tlv_b),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PS-Msg05'.encode(),
+        session_key)
+    tmp = ciphertext
 
     response_tlv = {
         TLV.kTLVType_State: TLV.M5,
@@ -145,12 +149,16 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
         sys.exit(-1)
 
     assert TLV.kTLVType_EncryptedData in response_tlv
-    decrypted_data = chacha20_aead_decrypt(bytes(), session_key, 'PS-Msg06'.encode(), bytes([0, 0, 0, 0]),
-                                           response_tlv[TLV.kTLVType_EncryptedData])
+    decrypted_data = chacha20_aead_decrypt(
+        bytes(response_tlv[TLV.kTLVType_EncryptedData]),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PS-Msg06'.encode(),
+        session_key)
     if decrypted_data == False:
         print('Step #7: Abort because of illegal data')
         sys.exit(-1)
 
+    decrypted_data = bytearray(decrypted_data)
     response_tlv = TLV.decode_bytearray(decrypted_data)
     assert TLV.kTLVType_Signature in response_tlv
     accessory_sig = response_tlv[TLV.kTLVType_Signature]
@@ -224,8 +232,11 @@ def get_session_keys(conn, pairing_data):
 
     # 3) verify authtag on encrypted data and 4) decrypt
     encrypted = response_tlv[TLV.kTLVType_EncryptedData]
-    decrypted = chacha20_aead_decrypt(bytes(), session_key, 'PV-Msg02'.encode(), bytes([0, 0, 0, 0]),
-                                      encrypted)
+    decrypted = chacha20_aead_decrypt(
+        bytes(encrypted),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PV-Msg02'.encode(),
+        session_key)
     if decrypted == False:
         print('Step #3: authtag was wrong')
         sys.exit(-1)
@@ -265,10 +276,12 @@ def get_session_keys(conn, pairing_data):
     })
 
     # 10) encrypt and sign
-    encrypted_data_with_auth_tag = chacha20_aead_encrypt(bytes(), session_key, 'PV-Msg03'.encode(), bytes([0, 0, 0, 0]),
-                                                         sub_tlv)
-    tmp = bytearray(encrypted_data_with_auth_tag[0])
-    tmp += encrypted_data_with_auth_tag[1]
+    ciphertext = chacha20_aead_encrypt(
+        bytes(sub_tlv),
+        bytes(),
+        bytes([0, 0, 0, 0]) + 'PV-Msg03'.encode(),
+        session_key)
+    tmp = ciphertext
 
     # 11) create tlv
     request_tlv = TLV.encode_dict({

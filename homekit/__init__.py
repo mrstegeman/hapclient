@@ -1,6 +1,5 @@
 from . import (feature_flags, model, statuscodes, _zeroconf)
 from .model import (categories, services)
-from .chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
 from .protocol import perform_pair_setup, get_session_keys
 from .secure_http import SecureHttp
 from .srp import SrpClient
