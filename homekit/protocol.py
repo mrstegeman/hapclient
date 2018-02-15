@@ -3,7 +3,7 @@ import hkdf
 import hashlib
 import py25519
 from binascii import hexlify
-from pure25519 import ed25519_oop as ed25519
+from nacl.signing import SigningKey, VerifyKey
 
 from .tlv import TLV
 from .srp import SrpClient
@@ -86,7 +86,8 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     # M5 Request generation (page 44)
     session_key = srp_client.get_session_key()
 
-    ios_device_ltsk, ios_device_ltpk = ed25519.create_keypair()
+    ios_device_ltsk = SigningKey.generate()
+    ios_device_ltvk = ios_device_ltsk.verify_key
 
     # reversed:
     #   Pair-Setup-Encrypt-Salt instead of Pair-Setup-Controller-Sign-Salt
@@ -100,13 +101,13 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     session_key = hkdf_inst.expand('Pair-Setup-Encrypt-Info'.encode(), 32)
 
     ios_device_pairing_id = ios_pairing_id.encode()
-    ios_device_info = ios_device_x + ios_device_pairing_id + ios_device_ltpk.to_bytes()
+    ios_device_info = ios_device_x + ios_device_pairing_id + bytes(ios_device_ltvk)
 
-    ios_device_signature = ios_device_ltsk.sign(ios_device_info)
+    ios_device_signature = ios_device_ltsk.sign(ios_device_info).signature
 
     sub_tlv = {
         TLV.kTLVType_Identifier: ios_device_pairing_id,
-        TLV.kTLVType_PublicKey: ios_device_ltpk.to_bytes(),
+        TLV.kTLVType_PublicKey: bytes(ios_device_ltvk),
         TLV.kTLVType_Signature: ios_device_signature
     }
     sub_tlv_b = TLV.encode_dict(sub_tlv)
@@ -139,6 +140,7 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
         elif response_tlv[TLV.kTLVType_Error] == TLV.kTLVError_MaxPeers:
             print('Step #7: kTLVError_MaxPeers!')
         else:
+            print(response_tlv[TLV.kTLVType_Error])
             print('Step #7: unkown error!')
         sys.exit(-1)
 
@@ -165,15 +167,15 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
 
     accessory_info = accessory_x + accessory_pairing_id + accessory_ltpk
 
-    e25519s = ed25519.VerifyingKey(bytes(response_tlv[TLV.kTLVType_PublicKey]))
-    e25519s.verify(bytes(accessory_sig), bytes(accessory_info))
+    e25519s = VerifyKey(bytes(response_tlv[TLV.kTLVType_PublicKey]))
+    e25519s.verify(bytes(accessory_info), bytes(accessory_sig))
 
     return {
         'AccessoryPairingID': response_tlv[TLV.kTLVType_Identifier].decode(),
         'AccessoryLTPK': hexlify(response_tlv[TLV.kTLVType_PublicKey]).decode(),
         'iOSPairingId': ios_pairing_id,
-        'iOSDeviceLTSK': ios_device_ltsk.to_ascii(encoding='hex').decode(),
-        'iOSDeviceLTPK': hexlify(ios_device_ltpk.to_bytes()).decode()
+        'iOSDeviceLTSK': hexlify(bytes(ios_device_ltsk)).decode(),
+        'iOSDeviceLTVK': hexlify(bytes(ios_device_ltvk)).decode(),
     }
 
 

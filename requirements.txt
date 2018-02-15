@@ -1,4 +1,4 @@
 zeroconf
 py25519
 hkdf
-pure25519
+pynacl
