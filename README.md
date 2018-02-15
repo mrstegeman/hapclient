@@ -1,7 +1,6 @@
 # HomeKit Python
 
-With this code it is possible to implement either a HomeKit Accessory or simulate a
-HomeKit Controller.
+With this code it is possible to implement a HomeKit Controller.
 
 **Limitations**
 
@@ -12,64 +11,11 @@ The code presented in this repository was created based on release R1 from 2017-
 
 # Installation
 
-Since the code relies on **gmpy2** for large numbers some development libraries and a compiler is required:
-
-So for debian:
-```bash
-apt install libgmp-dev libmpfr-dev libmpc-dev libffi-dev build-essential python3-pip python3-dev
-```
-
-After that use **pip3** to install the package:
+Use **pip3** to install the package:
 
 ```bash
 pip3 install --user homekit
 ```
-
-# HomeKit Accessory
-This package helps in creating a custom HomeKit Accessory.
-
-The demonstration uses this JSON in `~/.homekit/demoserver.json`: 
-```json
-{
-  "name": "DemoAccessory",
-  "host_ip": "$YOUR IP",
-  "host_port": 8080,
-  "accessory_pairing_id": "12:00:00:00:00:00",
-  "accessory_pin": "031-45-154",
-  "peers": {},
-  "unsuccessful_tries": 0
-}
-```
-
-Now let's spawn a simple light bulb accessory as demonstration:
-
-```python
-#!/usr/bin/env python3
-
-import os.path
-
-from homekit import HomeKitServer
-from homekit.model import Accessory, LightBulbService
-
-
-if __name__ == '__main__':
-    try:
-        httpd = HomeKitServer(os.path.expanduser('~/.homekit/demoserver.json'))
-
-        accessory = Accessory('Licht')
-        lightService = LightBulbService()
-        accessory.services.append(lightService)
-        httpd.accessories.add_accessory(accessory)
-
-        httpd.publish_device()
-        print('published device and start serving')
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print('unpublish device')
-        httpd.unpublish_device()
-```
-
-If everything went properly, you should be able to add this accessory to your home on your iOS device.
 
 # HomeKit Controller
 
