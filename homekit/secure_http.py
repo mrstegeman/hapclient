@@ -4,6 +4,7 @@ import io
 import http.client
 
 from .chacha20poly1305 import chacha20_aead_encrypt, chacha20_aead_decrypt
+from .pyparser import HttpParser
 
 
 class SecureHttp:
@@ -125,9 +126,14 @@ class SecureHttp:
                 else:
                     length = 0
 
-            # TODO: check for end of HTTP response the right way
-            if result.endswith(b'\r\n0\r\n\r\n'):
-                break
+            if result.startswith(b'HTTP/1.1'):
+                parser = HttpParser()
+                ret = parser.execute(result, len(result))
+                if ret == len(result) and parser.is_message_complete():
+                    break
+            else:
+                if result.endswith(b'\r\n0\r\n\r\n'):
+                    break
 
         #
         #   I expected a full http response but the first real homekit accessory (Koogeek-P1) just replies with body
