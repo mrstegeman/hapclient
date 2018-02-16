@@ -1,14 +1,14 @@
-# -*- coding: UTF-8 -*-
 """
-Implements the Secure Remote Password (SRP) algorithm. More information can be found on
-https://tools.ietf.org/html/rfc5054. See HomeKit spec page 36 for adjustments imposed by Apple.
+Implement the Secure Remote Password (SRP) algorithm.
+
+More information can be found on https://tools.ietf.org/html/rfc5054.
+See HomeKit spec page 36 for adjustments imposed by Apple.
 """
 
+import binascii
 import crypt
 import hashlib
-
 import six
-import binascii
 
 
 class Srp:

@@ -5,7 +5,7 @@ import http.client
 import io
 import os
 
-from .pyparser import HttpParser
+from .http_parser import HttpParser
 
 
 class SecureHttp:
