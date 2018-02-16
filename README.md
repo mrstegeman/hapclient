@@ -1,6 +1,6 @@
 # HomeKit Python
 
-With this code it is possible to implement a HomeKit Controller.
+With this code it is possible to implement a HomeKit Controller. This code was originally forked from: https://github.com/jlusiardi/homekit_python
 
 **Limitations**
 

@@ -1,15 +1,14 @@
 from distutils.core import setup
 
 setup(
-    name='homekit',
-    packages=['homekit', 'homekit.model'],  # this must be the same as the name above
-    version='0.4',
-    description='Python code to interface HomeKit Accessories and Controllers',
-    author='Joachim Lusiardi',
-    author_email='pypi@lusiardi.de',
-    url='https://github.com/jlusiardi/homekit_python',  # use the URL to the github repo
-    download_url='https://github.com/jlusiardi/homekit_python/archive/0.4.tar.gz',  # I'll explain this in a second
-    keywords=['HomeKit'],  # arbitrary keywords
+    name='hapclient',
+    packages=['hapclient', 'hapclient.http_parser', 'hapclient.model'],
+    version='0.5',
+    description='Library to implement a HAP (HomeKit) controller',
+    author='Michael Stegeman',
+    author_email='mrstegeman@gmail.com',
+    url='https://github.com/mrstegeman/hapclient',
+    keywords=['HomeKit', 'HAP'],
     classifiers=[],
     install_requires=[
         'hkdf',
