@@ -10,6 +10,7 @@ from nacl.signing import SigningKey, VerifyKey
 import hashlib
 import hkdf
 
+from .secure_http import SecureHttp
 from .srp import SrpClient
 from .tlv import TLV
 
@@ -186,7 +187,7 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
         'AccessoryPairingID': response_tlv[TLV.kTLVType_Identifier].decode(),
         'AccessoryLTPK':
             hexlify(response_tlv[TLV.kTLVType_PublicKey]).decode(),
-        'iOSPairingId': ios_pairing_id,
+        'iOSPairingID': ios_pairing_id,
         'iOSDeviceLTSK': hexlify(bytes(ios_device_ltsk)).decode(),
         'iOSDeviceLTPK': hexlify(bytes(ios_device_ltpk)).decode(),
     }
@@ -282,7 +283,7 @@ def get_session_keys(conn, pairing_data):
 
     # 7) create iOSDeviceInfo
     ios_device_info = bytes(ios_key.public_key) + \
-        pairing_data['iOSPairingId'].encode() + \
+        pairing_data['iOSPairingID'].encode() + \
         accessorys_session_pub_key_bytes
 
     # 8) sign iOSDeviceInfo with long term secret key
@@ -292,7 +293,7 @@ def get_session_keys(conn, pairing_data):
 
     # 9) construct sub tlv
     sub_tlv = TLV.encode_dict({
-        TLV.kTLVType_Identifier: pairing_data['iOSPairingId'].encode(),
+        TLV.kTLVType_Identifier: pairing_data['iOSPairingID'].encode(),
         TLV.kTLVType_Signature: ios_device_signature
     })
 
@@ -339,3 +340,44 @@ def get_session_keys(conn, pairing_data):
         hkdf_inst.expand('Control-Read-Encryption-Key'.encode(), 32)
 
     return controller_to_accessory_key, accessory_to_controller_key
+
+
+def remove_pairing(connection, pairing_data):
+    """
+    Remove a pairing with the device as described in Chapter 4.12 page 53.
+
+    :param connection: the http connection to the target accessory
+    :param pairing_data: the paring data as returned by perform_pair_setup
+    :returns: True on success, False on error
+    """
+    keys = get_session_keys(connection, pairing_data)
+    if not keys:
+        return False
+
+    controller_to_accessory_key, accessory_to_controller_key = keys
+
+    sec_http = SecureHttp(connection.sock,
+                          accessory_to_controller_key,
+                          controller_to_accessory_key)
+
+    request_tlv = TLV.encode_dict({
+        TLV.kTLVType_State: TLV.M1,
+        TLV.kTLVType_Method: TLV.RemovePairing,
+        TLV.kTLVType_Identifier: pairing_data['iOSPairingID'].encode(),
+    })
+    response = sec_http.post('/pairings',
+                             request_tlv,
+                             ctype='application/pairing+tlv8')
+    response_tlv = TLV.decode_bytes(response.read())
+    connection.close()
+
+    if TLV.kTLVType_State not in response_tlv:
+        return False
+
+    if response_tlv[TLV.kTLVType_State] != TLV.M2:
+        return False
+
+    if TLV.kTLVType_Error in response_tlv:
+        return False
+
+    return True

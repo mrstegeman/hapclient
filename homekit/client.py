@@ -4,7 +4,7 @@ import http.client
 import json
 import uuid
 
-from .protocol import get_session_keys, perform_pair_setup
+from .protocol import get_session_keys, perform_pair_setup, remove_pairing
 from .secure_http import SecureHttp
 from .zeroconf import discover_homekit_devices, find_device_ip_and_port
 
@@ -101,6 +101,19 @@ class HapClient:
 
         return False
 
+    def unpair(self):
+        """
+        Unpair the controller from the device.
+
+        :returns: True on success, False on error
+        """
+        if not self.pairing_data:
+            return False
+
+        conn = http.client.HTTPConnection(self.address, port=self.port)
+
+        return remove_pairing(conn, self.pairing_data)
+
     def get_accessories(self):
         """
         Get the accessory attribute database from the device.
@@ -112,8 +125,11 @@ class HapClient:
 
         conn = http.client.HTTPConnection(self.address, port=self.port)
 
-        controller_to_accessory_key, accessory_to_controller_key = \
-            get_session_keys(conn, self.pairing_data)
+        keys = get_session_keys(conn, self.pairing_data)
+        if not keys:
+            return None
+
+        controller_to_accessory_key, accessory_to_controller_key = keys
 
         sec_http = SecureHttp(conn.sock,
                               accessory_to_controller_key,
@@ -142,8 +158,11 @@ class HapClient:
 
         conn = http.client.HTTPConnection(self.address, port=self.port)
 
-        controller_to_accessory_key, accessory_to_controller_key = \
-            get_session_keys(conn, self.pairing_data)
+        keys = get_session_keys(conn, self.pairing_data)
+        if not keys:
+            return None
+
+        controller_to_accessory_key, accessory_to_controller_key = keys
 
         sec_http = SecureHttp(conn.sock,
                               accessory_to_controller_key,
@@ -178,8 +197,11 @@ class HapClient:
 
         conn = http.client.HTTPConnection(self.address, port=self.port)
 
-        controller_to_accessory_key, accessory_to_controller_key = \
-            get_session_keys(conn, self.pairing_data)
+        keys = get_session_keys(conn, self.pairing_data)
+        if not keys:
+            return None
+
+        controller_to_accessory_key, accessory_to_controller_key = keys
 
         sec_http = SecureHttp(conn.sock,
                               accessory_to_controller_key,

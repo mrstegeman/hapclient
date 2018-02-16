@@ -79,39 +79,51 @@ class SecureHttp:
         :param target: the target URL
         :returns: HTTP response object on success, None on error
         """
-        data = 'GET {tgt} HTTP/1.1\r\n\r\n'.format(tgt=target)
+        data = 'GET {} HTTP/1.1\r\n\r\n'.format(target).encode()
 
         return self._handle_request(data)
 
-    def put(self, target, body):
+    def put(self, target, body, ctype='application/hap+json'):
         """
         Perform a PUT request.
 
         :param target: the target URL
         :param body: the message body
+        :param ctype: the content-type
         :returns: HTTP response object on success, None on error
         """
-        headers = 'Host: hap-770D90.local\r\n' + \
-                  'Content-Type: application/hap+json\r\n' + \
-                  'Content-Length: {len}\r\n'.format(len=len(body))
-        data = 'PUT {tgt} HTTP/1.1\r\n{hdr}\r\n{body}'.format(tgt=target,
-                                                              hdr=headers,
-                                                              body=body)
+        if isinstance(body, str):
+            body = body.encode()
+        elif isinstance(body, bytearray):
+            body = bytes(body)
+
+        request = 'PUT {} HTTP/1.1\r\n'.format(target)
+        headers = 'Content-Type: {}\r\n'.format(ctype)
+        headers += 'Content-Length: {}\r\n\r\n'.format(len(body))
+
+        data = request.encode() + headers.encode() + body
+
         return self._handle_request(data)
 
-    def post(self, target, body):
+    def post(self, target, body, ctype='application/hap+json'):
         """
         Perform a POST request.
 
         :param target: the target URL
         :param body: the message body
+        :param ctype: the content-type
         :returns: HTTP response object on success, None on error
         """
-        headers = 'Content-Type: application/hap+json\r\n' + \
-                  'Content-Length: {len}\r\n'.format(len=len(body))
-        data = 'POST {tgt} HTTP/1.1\r\n{hdr}\r\n{body}'.format(tgt=target,
-                                                               hdr=headers,
-                                                               body=body)
+        if isinstance(body, str):
+            body = body.encode()
+        elif isinstance(body, bytearray):
+            body = bytes(body)
+
+        request = 'POST {} HTTP/1.1\r\n'.format(target)
+        headers = 'Content-Type: {}\r\n'.format(ctype)
+        headers += 'Content-Length: {}\r\n\n'.format(len(body))
+
+        data = request.encode() + headers.encode() + body
 
         return self._handle_request(data)
 
@@ -129,7 +141,7 @@ class SecureHttp:
         cnt_bytes = self.c2a_counter.to_bytes(8, byteorder='little')
         self.c2a_counter += 1
         ciphertext = crypto_aead_chacha20poly1305_ietf_encrypt(
-            data.encode(),
+            data,
             len_bytes,
             bytes([0, 0, 0, 0]) + cnt_bytes,
             self.c2a_key)
