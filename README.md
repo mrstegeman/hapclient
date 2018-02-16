@@ -14,94 +14,51 @@ The code presented in this repository was created based on release R1 from 2017-
 Use **pip3** to install the package:
 
 ```bash
-pip3 install --user homekit
+pip3 install --user hapclient
 ```
 
 # HomeKit Controller
 
-The following tools help to access HomeKit Accessories.
+To implement a simple HomeKit controller, you can do the following:
 
-## discover.py
+```python
+from hapclient.client import HapClient
+import json
 
-This tool will list all available HomeKit IP Accessories within the local network.
+# Find available devices.
+devices = HapClient.discover()
+print(json.dumps(devices, indent=2))
 
-Usage:
-```bash
-./discover.py
+# Select a device
+device = devices[0]
+
+# Create a client
+client = HapClient(device['id'],
+                   address=device['address'],
+                   port=device['port'])
+
+# Pair with the device
+pin = '123-45-678'  # replace this with your PIN
+client.pair(pin)
+
+# Print out the pairing data and save it somewhere, as you'll need it.
+# The next time you create a HapClient, you won't be able to pair (since you've
+# already done so, so instead, you'll pass in this dict as
+# `pairing_data=<dict>`.
+print(json.dumps(client.pairing_data, indent=2))
+
+# List some things
+print(json.dumps(client.get_accessories(), indent=2))
+print(json.dumps(client.get_characteristics(['1.11']), indent=2))
+
+# Set a characteristic
+client.set_characteristics({'1.11': False})
+
+# If you want to unpair, do the following:
+client.unpair()
 ```
-
-Output:
-```
-Name: smarthomebridge3._hap._tcp.local.
-Url: http://192.168.178.21:51827
-Configuration number (c#): 2
-Feature Flags (ff): Paired (Flag: 0)
-Device ID (id): 12:34:56:78:90:05
-Model Name (md): Bridge
-Protocol Version (pv): 1.0
-State Number (s#): 1
-Status Flags (sf): 0
-Category Identifier (ci): Other (Id: 1)
-```
-
-## identify.py
-
-This tool will use the Identify Routine of a HomeKit IP Accessory.
-
-Usage:
-```bash
-./identify.py -d ${DEVICEID}
-```
-
-Output:
-
-Either *identify succeeded.* or *identify failed* followed by a reason (see table 5-12 page 80). 
-
-## pair.py
-
-This tool will perform a paring to a new accessory.
-
-Usage:
-```bash
-./pair.py -d ${DEVICEID} -p ${SETUPCODE} -f ${PAIRINGDATAFILE}
-```
-
-The file with the pairing data will be required to for any additional commands to the accessory.
-
-## get_accessories.py
-
-This tool will read the accessory attribute database.
-
-Usage:
-```bash
-./get_accessories.py -f ${PAIRINGDATAFILE} [-o {json,compact}]
-```
-
-The option `-o` specifies the format of the output:
- * `json` displays the result as pretty printed JSON
- * `compact` reformats the output to get more on one screen
-
-## get_characteristics.py
-This tool will read values from one or more characteristics.
-
-Usage:
-```bash
-./get_characteristics.py -f ${PAIRINGDATAFILE} -c {Characteristics} [-m] [-p] [-t] [-e]
-```
-
-The option `-c` specifies the characteristics to read. The format is `<aid>.<cid>[,<aid>.<cid>]*`.
- 
-The option `-m` specifies if the meta data should be read as well.
-
-The option `-p` specifies if the permissions should be read as well.
-
-The option `-t` specifies if the type information should be read as well.
-
-The option `-e` specifies if the event data should be read as well.
-
-# HomeKit Accessory
 
 # Tests
 
 The code was tested with the following devices:
- * Koogeek P1EU Plug ([Vendor](https://www.koogeek.com/smart-home-2418/p-p1eu.html))
+ * [iDevices Switch](https://store.idevicesinc.com/idevices-switch/)
