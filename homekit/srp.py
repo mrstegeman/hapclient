@@ -84,15 +84,15 @@ E0FD108E4B82D120A93AD2CAFFFFFFFFFFFFFFFF'''), 16)
 
 
 class SrpClient(Srp):
-    """
-    Implements all functions that are required to simulate an iOS HomeKit controller
-    """
+    """Required SRP functions to simulate an iOS HomeKit controller."""
+
     def __init__(self, username: str, password: str):
         Srp.__init__(self)
         self.username = username
         self.password = password
         self.salt = None
-        self.a = int(binascii.hexlify(crypt.mksalt(crypt.METHOD_SHA512)[3:].encode()), 16)
+        self.a = int(binascii.hexlify(
+            crypt.mksalt(crypt.METHOD_SHA512)[3:].encode()), 16)
         self.A = pow(self.g, self.a, self.n)
         self.B = None
 
@@ -163,119 +163,3 @@ class SrpClient(Srp):
         hash_instance.update(Srp.to_byte_array(self.get_proof()))
         hash_instance.update(Srp.to_byte_array(self.get_session_key()))
         return tmp == int(binascii.hexlify(hash_instance.digest()), 16)
-
-
-class SrpServer(Srp):
-    """
-    Implements all functions that are required to simulate an iOS HomeKit accessory
-    """
-    def __init__(self, username, password):
-        Srp.__init__(self)
-        self.username = username
-        self.salt = SrpServer._create_salt()
-        self.password = password
-        self.verifier = self._get_verifier()
-        salt = crypt.mksalt(crypt.METHOD_SHA256)[3:].encode()
-        salt_b = binascii.hexlify(salt)
-        self.b = int(salt_b, 16)
-        k = self._calculate_k()
-        g_b = pow(self.g, self.b, self.n)
-        self.B = (k * self.verifier + g_b) % self.n
-
-        self.A = None
-
-    @staticmethod
-    def _create_salt() -> int:
-        salt = crypt.mksalt(crypt.METHOD_SHA512)[3:]
-        salt_b = salt.encode()
-        salt_hex = binascii.hexlify(salt_b)
-        salt_int = int(salt_hex, 16)
-        assert len(salt) == 16
-        return salt_int
-
-    def _get_verifier(self) -> int:
-        hash_value = self._calculate_x()
-        v = pow(self.g, hash_value, self.n)
-        return v
-
-    def set_client_public_key(self, A):
-        self.A = A
-
-    def get_salt(self):
-        return self.salt
-
-    def get_public_key(self):
-        k = self._calculate_k()
-        return (k * self.verifier + pow(self.g, self.b, self.n)) % self.n
-
-    def get_shared_secret(self):
-        if self.A is None:
-            raise RuntimeError('Client\'s public key is missing')
-
-        tmp1 = self.A * pow(self.verifier, self._calculate_u(), self.n)
-        return pow(tmp1, self.b, self.n)
-
-    def verify_clients_proof(self, m) -> bool:
-        if self.B is None:
-            raise RuntimeError('Server\'s public key is missing')
-
-        hash_instance = self.h()
-        hash_instance.update(Srp.to_byte_array(self.n))
-        hN = bytearray(hash_instance.digest())
-
-        hash_instance = self.h()
-        hash_instance.update(Srp.to_byte_array(self.g))
-        hg = bytearray(hash_instance.digest())
-
-        for index in range(0, len(hN)):
-            hN[index] ^= hg[index]
-
-        u = self.username.encode()
-        hash_instance = self.h()
-        hash_instance.update(u)
-        hu = hash_instance.digest()
-        K = Srp.to_byte_array(self.get_session_key())
-
-        hash_instance = self.h()
-        hash_instance.update(hN)
-        hash_instance.update(hu)
-        hash_instance.update(Srp.to_byte_array(self.salt))
-        hash_instance.update(Srp.to_byte_array(self.A))
-        hash_instance.update(Srp.to_byte_array(self.B))
-        hash_instance.update(K)
-        r = binascii.hexlify(hash_instance.digest())
-        return m == int(r, 16)
-
-    def get_proof(self, m) -> int:
-        hash_instance = self.h()
-        hash_instance.update(Srp.to_byte_array(self.A))
-        hash_instance.update(Srp.to_byte_array(m))
-        hash_instance.update(Srp.to_byte_array(self.get_session_key()))
-        return int(binascii.hexlify(hash_instance.digest()), 16)
-
-
-if __name__ == '__main__':
-    # step M1
-
-    # step M2
-    setup_code = '123-45-678'  # transmitted on second channel
-    server = SrpServer('Pair-Setup', setup_code)
-    server_pub_key = server.get_public_key()
-    server_salt = server.get_salt()
-
-    # step M3
-    client = SrpClient('Pair-Setup', setup_code)
-    client.set_salt(server_salt)
-    client.set_server_public_key(server_pub_key)
-
-    client_pub_key = client.get_public_key()
-    clients_proof = client.get_proof()
-
-    # step M4
-    server.set_client_public_key(client_pub_key)
-    server_shared_secret = server.get_shared_secret()
-    assert server.verify_clients_proof(clients_proof)
-    servers_proof = server.get_proof(clients_proof)
-
-    # step M5
-    assert client.verify_servers_proof(servers_proof)

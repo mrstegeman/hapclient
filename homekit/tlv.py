@@ -1,7 +1,8 @@
+"""Class for dealing with HAP TLV data."""
+
+
 class TLV:
-    """
-    as described in Appendix 12 (page 251)
-    """
+    """This data is taken from Appendix 12 on page 251."""
 
     # Steps
     M1 = bytearray(b'\x01')
@@ -44,16 +45,26 @@ class TLV:
     kTLVError_Unavailable = bytearray(b'\x06')
     kTLVError_Busy = bytearray(b'\x07')
 
-    def __init__(self):
-        pass
-
     @staticmethod
     def decode_bytes(bs) -> dict:
+        """
+        Decode a byte string.
+
+        :param bs: the byte string to decode
+        :return: decoded TLV as a dict
+        """
         return TLV.decode_bytearray(bytearray(bs))
 
     @staticmethod
     def decode_bytearray(ba: bytearray) -> dict:
+        """
+        Decode a bytearray.
+
+        :param ba: the bytearray to decode
+        :return: decoded TLV as a dict
+        """
         result = {}
+
         # do not influence caller!
         tail = ba.copy()
         while len(tail) > 0:
@@ -67,12 +78,19 @@ class TLV:
             else:
                 for b in value:
                     result[key].append(b)
+
         return result
 
     @staticmethod
-    def validate_key(k: int) -> bool:
+    def validate_tag(t: int) -> bool:
+        """
+        Validate a TLV tag.
+
+        :param t: tag to validate
+        :return: True if validation succeeded, False if not
+        """
         try:
-            val = int(k)
+            val = int(t)
             if val < 0 or val > 255:
                 valid = False
             else:
@@ -83,10 +101,17 @@ class TLV:
 
     @staticmethod
     def encode_dict(d: dict) -> bytearray:
+        """
+        Encode a dict as a TLV bytearray.
+
+        :param d: dict to encode
+        :returns: bytearray containing encoded dict
+        :raises ValueError: if dict failed to encode
+        """
         result = bytearray()
         for key in d:
-            if not TLV.validate_key(key):
-                raise ValueError('Invalid key')
+            if not TLV.validate_tag(key):
+                raise ValueError('Invalid tag')
 
             value = d[key]
 
@@ -112,36 +137,5 @@ class TLV:
                     for b in value[:length]:
                         result.append(b)
                     value = value[length:]
+
         return result
-
-    @staticmethod
-    def to_string(d: dict) -> str:
-        res = '{\n'
-        for k in sorted(d.keys()):
-            res += '  {k}: {v}\n'.format(k=k, v=d[k])
-        res += '}\n'
-        return res
-
-if __name__ == '__main__':
-    # TLV Example 1 from Chap 12.1.2 Page 252
-    example_1 = bytearray.fromhex('060103010568656c6c6f')
-    dict_1_1 = TLV.decode_bytearray(example_1)
-
-    bytearray_1 = TLV.encode_dict(dict_1_1)
-    dict_1_2 = TLV.decode_bytearray(bytearray_1)
-    assert dict_1_1 == dict_1_2
-
-    # TLV Example 1 from Chap 12.1.2 Page 252
-    example_2 = bytearray.fromhex('060103' + ('09FF' + 255 * '61' + '092D' + 45 * '61') + '010568656c6c6f')
-    dict_2_1 = TLV.decode_bytearray(example_2)
-
-    bytearray_2 = TLV.encode_dict(dict_2_1)
-    dict_2_2 = TLV.decode_bytearray(bytearray_2)
-    assert dict_2_1 == dict_2_2
-
-    example_3 = {
-        TLV.kTLVType_Separator: bytes()
-    }
-    print(TLV.encode_dict(example_3))
-
-    print(TLV.to_string(dict_2_1))

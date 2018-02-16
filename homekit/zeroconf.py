@@ -1,27 +1,55 @@
+"""Zeroconf wrappers for finding HAP devices."""
+
 from socket import inet_ntoa
 from time import sleep
 from zeroconf import ServiceBrowser, Zeroconf
 
-from .model.categories import Categories
-
 
 class CollectingListener(object):
+    """Listener for discovered services."""
+
     def __init__(self):
+        """Initialize the object."""
         self.data = []
 
-    def remove_service(self, zeroconf, type, name):
-        # this is ignored since not interested in disappearing stuff
+    def remove_service(self, zeroconf, type_, name):
+        """
+        Service was removed.
+
+        This is ignored since we're not interested in disappearing services.
+
+        :param zeroconf: the Zeroconf object associated with this listener
+        :param type_: the service type
+        :param name: the service name
+        """
         pass
 
-    def add_service(self, zeroconf, type, name):
-        info = zeroconf.get_service_info(type, name)
+    def add_service(self, zeroconf, type_, name):
+        """
+        Service was added.
+
+        :param zeroconf: the Zeroconf object associated with this listener
+        :param type_: the service type
+        :param name: the service name
+        """
+        info = zeroconf.get_service_info(type_, name)
         self.data.append(info)
 
     def get_data(self):
+        """
+        Get the list of discovered records.
+
+        :returns: list of ServiceInfo records
+        """
         return self.data
 
 
 def discover_homekit_devices():
+    """
+    Search for HAP devices on the network.
+
+    :returns: list of dicts containing service info
+    """
     zeroconf = Zeroconf()
     listener = CollectingListener()
     browser = ServiceBrowser(zeroconf, '_hap._tcp.local.', listener)
@@ -50,6 +78,12 @@ def discover_homekit_devices():
 
 
 def find_device_ip_and_port(device_id: str):
+    """
+    Find a specific device on the network.
+
+    :param device_id: ID of device to search for
+    :returns: dict containing IP and port, if found, else None
+    """
     result = None
     zeroconf = Zeroconf()
     listener = CollectingListener()

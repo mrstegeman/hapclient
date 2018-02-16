@@ -1,10 +1,9 @@
-from .mixin import ToDictMixin, get_id
+"""Accessory characteristic types."""
 
 
 class _CharacteristicsTypes(object):
-    """
-    This data is taken from Table 12-3 Accessory Categories on page 254. Values above 19 are reserved.
-    """
+    """This data is taken from Apple-defined Characteristics on page 144."""
+
     ACCESSORY_PROPERTIES = 'A6'
     ACTIVE = 'B0'
     ADMINISTRATOR_ONLY_ACCESS = '1'
@@ -113,6 +112,7 @@ class _CharacteristicsTypes(object):
     ZOOM_OPTICAL = '11C'
 
     def __init__(self):
+        """Initialize the object."""
         self.baseUUID = '-0000-1000-8000-0026BB765291'
         self._characteristics = {
             '1': 'public.hap.characteristic.administrator-only-access',
@@ -126,7 +126,8 @@ class _CharacteristicsTypes(object):
             '12': 'public.hap.characteristic.temperature.heating-threshold',
             '13': 'public.hap.characteristic.hue',
             '14': 'public.hap.characteristic.identify',
-            '1A': 'public.hap.characteristic.lock-management.auto-secure-timeout',
+            '1A': 'public.hap.characteristic.lock-management.auto-secure-'
+                  'timeout',
             '1C': 'public.hap.characteristic.lock-mechanism.last-known-action',
             '1D': 'public.hap.characteristic.lock-mechanism.current-state',
             '1E': 'public.hap.characteristic.lock-mechanism.target-state',
@@ -208,10 +209,12 @@ class _CharacteristicsTypes(object):
             'CB': 'public.hap.characteristic.service-label-index',
             'CD': 'public.hap.characteristic.service-label-namespace',
             'CE': 'public.hap.characteristic.color-temperature',
-            '114': 'public.hap.characteristic.supported-video-stream-configuration',
+            '114': 'public.hap.characteristic.supported-video-stream-'
+                   'configuration',
             '115': 'public.hap.characteristic.supported-audio-configuration',
             '116': 'public.hap.characteristic.supported-rtp-configuration',
-            '117': 'public.hap.characteristic.selected-rtp-stream-configuration',
+            '117': 'public.hap.characteristic.selected-rtp-stream-'
+                   'configuration',
             '118': 'public.hap.characteristic.setup-endpoints',
             '119': 'public.hap.characteristic.volume',
             '11A': 'public.hap.characteristic.mute',
@@ -223,7 +226,8 @@ class _CharacteristicsTypes(object):
             '120': 'public.hap.characteristic.streaming-status',
         }
 
-        self._characteristics_rev = {self._characteristics[k]: k for k in self._characteristics.keys()}
+        self._characteristics_rev = \
+            {self._characteristics[k]: k for k in self._characteristics.keys()}
 
     def __getitem__(self, item):
         if item in self._characteristics:
@@ -236,6 +240,12 @@ class _CharacteristicsTypes(object):
         return 'Unknown Characteristic {i}?'.format(i=item)
 
     def get_short(self, item: str):
+        """
+        Get short name from item number.
+
+        :param item: item number
+        :returns: short name
+        """
         orig_item = item
         if item.endswith(self.baseUUID):
             item = item.split('-', 1)[0]
@@ -247,6 +257,12 @@ class _CharacteristicsTypes(object):
         return 'Unknown Characteristic {i}?'.format(i=orig_item)
 
     def get_uuid(self, item_name):
+        """
+        Get UUID from name.
+
+        :param item_name: name of item
+        :returns: uuid
+        """
         if item_name in self._characteristics_rev:
             short = self._characteristics_rev[item_name]
         if item_name in self._characteristics:
@@ -257,255 +273,3 @@ class _CharacteristicsTypes(object):
 
 
 CharacteristicsTypes = _CharacteristicsTypes()
-
-
-class CharacteristicUnits(object):
-    """
-    See table 5-6 page 68
-    """
-    celsius = 'celsius'
-    percentage = 'percentage'
-    arcdegrees = 'arcdegrees'
-    lux = 'lux'
-    seconds = 'seconds'
-
-
-class CharacteristicPermissions(object):
-    """
-    See table 5-4 page 67
-    """
-    paired_read = 'pr'
-    paired_write = 'pw'
-    events = 'ev'
-    addition_authorization = 'aa'
-    timed_write = 'tw'
-    hidden = 'hd'
-
-
-class CharacteristicFormats(object):
-    """
-    Values for characteristic's format taken from table 5-5 page 67
-    """
-    bool = 'bool'
-    uint8 = 'uint8'
-    uint16 = 'uint16'
-    uint32 = 'uint32'
-    uint64 = 'uint64'
-    int = 'int'
-    float = 'float'
-    string = 'string'
-    tlv8 = 'tlv8'
-    data = 'data'
-
-
-class Characteristic(ToDictMixin):
-    def __init__(self, iid: int, characteristic_type: str, characteristic_format: str):
-        self.type = CharacteristicsTypes.get_uuid(characteristic_type)
-        self.iid = iid
-        self.value = None
-        self.perms = [CharacteristicPermissions.paired_read]
-        self.ev = None  # not required
-        self.description = None  # string, not required
-        self.format = characteristic_format
-        self.unit = None  # string, not required
-        self.minValue = None  # number, not required
-        self.maxValue = None  # number, not required
-        self.minStep = None  # number, not required
-        self.maxLen = None  # number, not required
-        self.maxDataLen = None  # number, not required
-        self.valid_values = None  # array, not required
-        self.valid_values_range = None  # array, not required
-        self._set_value_callback = None
-        self._get_value_callback = None
-
-    def set_set_value_callback(self, callback):
-        self._set_value_callback = callback
-
-    def set_get_value_callback(self, callback):
-        self._get_value_callback = callback
-
-    def set_events(self, new_val):
-        self.ev = new_val
-
-    def set_value(self, new_val):
-        self.value = new_val
-        if self._set_value_callback:
-            self._set_value_callback(new_val)
-
-    def get_value(self):
-        if self._get_value_callback:
-            return self._get_value_callback()
-        return self.value
-
-
-class CurrentHeatingCoolingStateCharacteristic(Characteristic):
-    """
-    Defined on page 147
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.HEATING_COOLING_CURRENT, CharacteristicFormats.uint8)
-        self.perms = [CharacteristicPermissions.paired_read, CharacteristicPermissions.events]
-        self.minValue = 0
-        self.maxValue = 2
-        self.step = 1
-        self.value = 0
-
-
-class CurrentTemperatureCharacteristic(Characteristic):
-    """
-    Defined on page 148
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.TEMPERATURE_CURRENT, CharacteristicFormats.float)
-        self.perms = [CharacteristicPermissions.paired_read, CharacteristicPermissions.events]
-        self.minValue = 0.0
-        self.maxValue = 100.0
-        self.step = 0.1
-        self.unit = CharacteristicUnits.celsius
-        self.value = 23.0
-
-
-class TargetHeatingCoolingStateCharacteristic(Characteristic):
-    """
-    Defined on page 161
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.HEATING_COOLING_TARGET, CharacteristicFormats.uint8)
-        self.perms = [CharacteristicPermissions.paired_write, CharacteristicPermissions.paired_read,
-                      CharacteristicPermissions.events]
-        self.minValue = 0
-        self.maxValue = 3
-        self.step = 1
-        self.value = 0
-
-
-class TargetTemperatureCharacteristic(Characteristic):
-    """
-    Defined on page 162
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.TEMPERATURE_TARGET, CharacteristicFormats.float)
-        self.perms = [CharacteristicPermissions.paired_write, CharacteristicPermissions.paired_read,
-                      CharacteristicPermissions.events]
-        self.minValue = 10.0
-        self.maxValue = 38.0
-        self.step = 0.1
-        self.unit = CharacteristicUnits.celsius
-        self.value = 23.0
-
-
-class TemperatureDisplayUnits(Characteristic):
-    """
-    Defined on page 163
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.TEMPERATURE_UNITS, CharacteristicFormats.uint8)
-        self.perms = [CharacteristicPermissions.paired_write, CharacteristicPermissions.paired_read,
-                      CharacteristicPermissions.events]
-        self.minValue = 0
-        self.maxValue = 1
-        self.step = 1
-        self.value = 0
-
-
-class FirmwareRevisionCharacteristic(Characteristic):
-    """
-    Defined on page 149
-    """
-
-    def __init__(self, iid, revision):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.FIRMWARE_REVISION, CharacteristicFormats.string)
-        self.value = revision
-        self.description = 'Firmware Revision'
-
-
-class IdentifyCharacteristic(Characteristic):
-    """
-    Defined on page 152
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.IDENTIFY, CharacteristicFormats.bool)
-        self.perms = [CharacteristicPermissions.paired_write]
-        self.description = 'Identify'
-
-    def set_value(self, new_val):
-        pass
-
-
-class ManufacturerCharacteristic(Characteristic):
-    """
-    Defined on page 156
-    """
-
-    def __init__(self, iid, manufacturer):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.MANUFACTURER, CharacteristicFormats.string)
-        self.value = manufacturer
-        self.maxLen = 64
-        self.description = 'Manufacturer'
-
-
-class ModelCharacteristic(Characteristic):
-    """
-    Defined on page 156
-    """
-
-    def __init__(self, iid, model):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.MODEL, CharacteristicFormats.string)
-        self.value = model
-        self.maxLen = 64
-        self.description = 'Model'
-
-
-class NameCharacteristic(Characteristic):
-    """
-    Defined on page 157
-    """
-
-    def __init__(self, iid, name):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.NAME, CharacteristicFormats.string)
-        self.value = name
-        self.maxLen = 64
-        self.description = 'Name'
-
-
-class OnCharacteristic(Characteristic):
-    """
-    Defined on page 157
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.ON, CharacteristicFormats.bool)
-        self.description = 'On'
-        self.perms = [CharacteristicPermissions.paired_write, CharacteristicPermissions.paired_read,
-                      CharacteristicPermissions.events]
-        self.value = False
-
-
-class OutletInUseCharacteristic(Characteristic):
-    """
-    Defined on page 158
-    """
-
-    def __init__(self, iid):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.OUTLET_IN_USE, CharacteristicFormats.bool)
-        self.description = 'Outlet in use'
-        self.perms = [CharacteristicPermissions.paired_read, CharacteristicPermissions.events]
-        self.value = False
-
-
-class SerialNumberCharacteristic(Characteristic):
-    """
-    Defined on page 160
-    """
-
-    def __init__(self, iid, number):
-        Characteristic.__init__(self, iid, CharacteristicsTypes.SERIAL_NUMBER, CharacteristicFormats.string)
-        self.value = number
-        self.maxLen = 64
-        self.description = 'Serial Number'

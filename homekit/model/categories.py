@@ -1,6 +1,11 @@
+"""Accessory categories."""
+
+
 class _Categories(object):
     """
-    This data is taken from Table 12-3 Accessory Categories on page 254. Values above 19 are reserved.
+    This data is taken from Table 12-3 Accessory Categories on page 254.
+
+    Values above 19 are reserved.
     """
 
     def __init__(self):
@@ -26,7 +31,8 @@ class _Categories(object):
             19: 'Air Purifier'
         }
 
-        self._categories_rev = {self._categories[k]: k for k in self._categories.keys()}
+        self._categories_rev = \
+            {self._categories[k]: k for k in self._categories.keys()}
 
     def __getitem__(self, item):
         if item in self._categories:

@@ -1,14 +1,18 @@
+"""Definition of HAP status codes."""
+
+
 class _HapStatusCodes(object):
-    """
-    This data is taken from Table 5-12 HAP Satus Codes on page 80.
-    """
+    """This data is taken from Table 5-12 HAP Satus Codes on page 80."""
+
     INSUFFICIENT_PRIVILEGES = -70401
 
     def __init__(self):
+        """Initialize the object."""
         self._codes = {
             0: 'This specifies a success for the request.',
             -70401: 'Request denied due to insufficient privileges.',
-            -70402: 'Unable to communicate with requested service, e.g. the power to the accessory was turned off.',
+            -70402: 'Unable to communicate with requested service, e.g. the '
+                    'power to the accessory was turned off.',
             -70403: 'Resource is busy, try again.',
             -70404: 'Cannot write to read only characteristic.',
             -70405: 'Cannot read from a write only characteristic.',
@@ -29,38 +33,4 @@ class _HapStatusCodes(object):
         raise KeyError('Item {item} not found'.format_map(item=item))
 
 
-class _HttpStatuCodes:
-    """
-    See Table 4-2 Chapter 4.15 Page 59
-    """
-    OK = 200
-    NO_CONTENT = 204
-    BAD_REQUEST = 400
-    FORBIDDEN = 403
-    NOT_FOUND = 404
-    METHOD_NOT_ALLOWED = 405
-    TOO_MANY_REQUESTS = 429
-    CONNECTION_AUTHORIZATION_REQUIRED = 470
-    INTERNAL_SERVER_ERROR = 500
-
-    def __init__(self):
-        self._codes = {
-            200: 'OK',
-            204: 'No Content',
-            400: 'Bad Request',
-            405: 'Method Not Allowed',
-            429: 'Too Many Requests',
-            470: 'Connection Authorization Required',
-            500: 'Internal Server Error'
-        }
-        self._categories_rev = {self._codes[k]: k for k in self._codes.keys()}
-
-        def __getitem__(self, item):
-            if item in self._codes:
-                return self._codes[item]
-
-            raise KeyError('Item {item} not found'.format_map(item=item))
-
-
 HapStatusCodes = _HapStatusCodes()
-HttpStatusCodes = _HttpStatuCodes()

@@ -1,10 +1,8 @@
-from .characteristics import *
+"""Service types."""
 
 
-class _ServicesTypes(object):
-    """
-    This data is taken from Table 12-3 Accessory Categories on page 254. Values above 19 are reserved.
-    """
+class _ServiceTypes(object):
+    """This data is taken from Apple-defined Services on page 216."""
 
     def __init__(self):
         self.baseUUID = '-0000-1000-8000-0026BB765291'
@@ -46,7 +44,8 @@ class _ServicesTypes(object):
             '121': 'public.hap.service.doorbell',
         }
 
-        self._services_rev = {self._services[k]: k for k in self._services.keys()}
+        self._services_rev = \
+            {self._services[k]: k for k in self._services.keys()}
 
     def __getitem__(self, item):
         if item in self._services:
@@ -77,125 +76,4 @@ class _ServicesTypes(object):
         return long
 
 
-ServicesTypes = _ServicesTypes()
-
-
-class _Service(ToDictMixin):
-    def __init__(self, service_type: str, iid: int):
-        self.type = service_type
-        self.iid = iid
-        self.characteristics = []
-        pass
-
-
-class AcessoryInformationService(_Service):
-    """
-    Defined on page 216
-    """
-
-    def __init__(self, name):
-        _Service.__init__(self, ServicesTypes.get_uuid('public.hap.service.accessory-information'), get_id())
-        self.characteristics.append(IdentifyCharacteristic(get_id()))
-        self.characteristics.append(ManufacturerCharacteristic(get_id(), 'lusiardi.de'))
-        self.characteristics.append(ModelCharacteristic(get_id(), 'python bridge'))
-        self.characteristics.append(NameCharacteristic(get_id(), name))
-        self.characteristics.append(SerialNumberCharacteristic(get_id(), '1'))
-        self.characteristics.append(FirmwareRevisionCharacteristic(get_id(), '0.1'))
-
-    def get_name(self):
-        for characteristic in self.characteristics:
-            if isinstance(characteristic, NameCharacteristic):
-                return characteristic.value
-        return None
-
-
-class _OnCharacteristis(object):
-    def set_on_set_callback(self, callback):
-        self._onCharacteristic.set_set_value_callback(callback)
-
-    def set_on_get_callback(self, callback):
-        self._onCharacteristic.set_get_value_callback(callback)
-
-
-class FanService(_Service, _OnCharacteristis):
-    """
-    Defined on page 216
-    """
-
-    def __init__(self):
-        _Service.__init__(self, ServicesTypes.get_uuid('public.hap.service.fan'), get_id())
-        self._onCharacteristic = OnCharacteristic(get_id())
-        self.characteristics.append(self._onCharacteristic)
-
-
-class LightBulbService(_Service, _OnCharacteristis):
-    """
-    Defined on page 217
-    """
-
-    def __init__(self):
-        _Service.__init__(self, ServicesTypes.get_uuid('public.hap.service.lightbulb'), get_id())
-        self._onCharacteristic = OnCharacteristic(get_id())
-        self.characteristics.append(self._onCharacteristic)
-
-
-class OutletService(_Service, _OnCharacteristis):
-    """
-    Defined on page 219
-    """
-
-    def __init__(self):
-        _Service.__init__(self, ServicesTypes.get_uuid('public.hap.service.outlet'), get_id())
-        self._onCharacteristic = OnCharacteristic(get_id())
-        self.characteristics.append(self._onCharacteristic)
-        self._outletInUse = OutletInUseCharacteristic(get_id())
-        self.characteristics.append(self._outletInUse)
-
-
-class ThermostatService(_Service):
-    """
-    Defined on page 220
-    """
-
-    def __init__(self):
-        _Service.__init__(self, ServicesTypes.get_uuid('public.hap.service.thermostat'), get_id())
-
-        self._currentHeatingCoolingState = CurrentHeatingCoolingStateCharacteristic(get_id())
-        self.characteristics.append(self._currentHeatingCoolingState)
-
-        self._targetHeatingCoolingState = TargetHeatingCoolingStateCharacteristic(get_id())
-        self.characteristics.append(self._targetHeatingCoolingState)
-
-        self._currentTemperature = CurrentTemperatureCharacteristic(get_id())
-        self.characteristics.append(self._currentTemperature)
-
-        self._targetTemperature = TargetTemperatureCharacteristic(get_id())
-        self.characteristics.append(self._targetTemperature)
-
-        self._temperatureDisplayUnits = TemperatureDisplayUnits(get_id())
-        self.characteristics.append(self._temperatureDisplayUnits)
-
-    def set_current_heating_cooling_state_get_callback(self, callback):
-        self._currentHeatingCoolingState.set_get_value_callback(callback)
-
-    def set_target_heating_cooling_state_set_callback(self, callback):
-        self._targetHeatingCoolingState.set_set_value_callback(callback)
-
-    def set_target_heating_cooling_state_get_callback(self, callback):
-        self._targetHeatingCoolingState.set_get_value_callback(callback)
-
-    def set_current_temperature_get_callback(self, callback):
-        self._currentTemperature.set_get_value_callback(callback)
-
-    def set_target_temperature_set_callback(self, callback):
-        self._targetTemperature.set_set_value_callback(callback)
-
-    def set_target_temperature_get_callback(self, callback):
-        self._targetTemperature.set_get_value_callback(callback)
-
-    def set_temperature_display_units_set_callback(self, callback):
-        self._temperatureDisplayUnits.set_set_value_callback(callback)
-
-    def set_temperature_display_units_get_callback(self, callback):
-        self._temperatureDisplayUnits.set_get_value_callback(callback)
-
+ServiceTypes = _ServiceTypes()

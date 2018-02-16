@@ -36,7 +36,7 @@ class HapClient:
         """
         Find the device on the network.
 
-        :return: True on success, False on error
+        :returns: True on success, False on error
         """
         connection_data = find_device_ip_and_port(self.device_id)
         if connection_data is None:
@@ -51,7 +51,7 @@ class HapClient:
         """
         Discover all HAP devices on the network.
 
-        :return: a list of dicts, each containing device data
+        :returns: a list of dicts, each containing device data
         """
         return discover_homekit_devices()
 
@@ -61,7 +61,7 @@ class HapClient:
 
         This can only be done before pairing.
 
-        :return: True on success, False on error
+        :returns: True on success, False on error
         """
         # It's impossible to identify if already paired.
         if self.pairing_data:
@@ -82,7 +82,7 @@ class HapClient:
         Attempt to pair with a device.
 
         :param pin: the pairing PIN
-        :return: True on success, False on error
+        :returns: True on success, False on error
         """
         # Do not allow the user to pair again.
         if self.pairing_data:
@@ -105,7 +105,7 @@ class HapClient:
         """
         Get the accessory attribute database from the device.
 
-        :return: dict of accessory attributes on success, None on error
+        :returns: dict of accessory attributes on success, None on error
         """
         if not self.pairing_data:
             return None
@@ -134,7 +134,7 @@ class HapClient:
         :param perms: whether or not to retrieve permission data
         :param type_: whether or not to retrieve the characteristic type
         :param ev: whether or not to retrieve the 'ev' property
-        :return: dict of characteristic attributes on success, None on error
+        :returns: dict of characteristic attributes on success, None on error
         """
         if not self.pairing_data or not isinstance(characteristics, list) or \
                 len(characteristics) < 1:
@@ -170,7 +170,7 @@ class HapClient:
         Modify a set of characteristics.
 
         :param characteristics: dict of characteristics ID to set, id -> val
-        :return: True on success, False on error
+        :returns: True on success, False on error
         """
         if not self.pairing_data or not isinstance(characteristics, dict) or \
                 len(characteristics) < 1:

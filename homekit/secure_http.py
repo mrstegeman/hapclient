@@ -1,41 +1,70 @@
+"""Handler for HomeKit's secure HTTP protocol."""
+
 from nacl.bindings import (crypto_aead_chacha20poly1305_ietf_encrypt,
                            crypto_aead_chacha20poly1305_ietf_decrypt)
-import fcntl
 import http.client
 import io
-import os
 
 from .http_parser import HttpParser
 
 
 class SecureHttp:
     """
-    Class to helf in the handling of HTTP requests and responses that are performed following chapter 5.5 page 70ff of
-    the HAP specification.
+    Class to handle HomeKit's secure HTTP protocol.
+
+    This is defined in chapter 5.5 page 70ff of the HAP specification.
     """
 
-    class Wrapper:
+    class SocketWrapper:
+        """Fake socket wrapper."""
+
         def __init__(self, data):
+            """
+            Initialize the object.
+
+            :param data: the response data
+            """
             self.data = data
 
         def makefile(self, arg):
+            """
+            Make this socket into a file-like object.
+
+            :returns: a BytesIO object with the response data
+            """
             return io.BytesIO(self.data)
 
     class HTTPResponseWrapper:
+        """HTTPResponse wrapper for complete data."""
+
         def __init__(self, data):
+            """
+            Initialize the object.
+
+            :param data: the response data
+            """
             self.data = data
             self.status = 200
 
         def read(self):
+            """
+            Read from the response body.
+
+            :returns: the full response
+            """
             return self.data
 
     def __init__(self, sock, a2c_key, c2a_key):
         """
-        Initializes the secure HTTP class. The required keys can be obtained with get_session_keys
+        Initialize the secure HTTP class.
+
+        The required keys can be obtained with get_session_keys.
 
         :param sock: the socket over which the communication takes place
-        :param a2c_key: the key used for the communication between accessory and controller
-        :param c2a_key: the key used for the communication between controller and accessory
+        :param a2c_key: the key used for the communication between accessory
+                        and controller
+        :param c2a_key: the key used for the communication between controller
+                        and accessory
         """
         self.sock = sock
         self.a2c_key = a2c_key
@@ -44,26 +73,58 @@ class SecureHttp:
         self.a2c_counter = 0
 
     def get(self, target):
-        data = 'GET {tgt} HTTP/1.1\n\n'.format(tgt=target)
+        """
+        Perform a GET request.
+
+        :param target: the target URL
+        :returns: HTTP response object on success, None on error
+        """
+        data = 'GET {tgt} HTTP/1.1\r\n\r\n'.format(tgt=target)
 
         return self._handle_request(data)
 
     def put(self, target, body):
-        headers = 'Host: hap-770D90.local\n' + \
-                  'Content-Type: application/hap+json\n' + \
-                  'Content-Length: {len}\n'.format(len=len(body))
-        data = 'PUT {tgt} HTTP/1.1\n{hdr}\n{body}'.format(tgt=target, hdr=headers, body=body)
+        """
+        Perform a PUT request.
+
+        :param target: the target URL
+        :param body: the message body
+        :returns: HTTP response object on success, None on error
+        """
+        headers = 'Host: hap-770D90.local\r\n' + \
+                  'Content-Type: application/hap+json\r\n' + \
+                  'Content-Length: {len}\r\n'.format(len=len(body))
+        data = 'PUT {tgt} HTTP/1.1\r\n{hdr}\r\n{body}'.format(tgt=target,
+                                                              hdr=headers,
+                                                              body=body)
         return self._handle_request(data)
 
     def post(self, target, body):
-        headers = 'Content-Type: application/hap+json\n' + \
-                  'Content-Length: {len}\n'.format(len=len(body))
-        data = 'POST {tgt} HTTP/1.1\n{hdr}\n{body}'.format(tgt=target, hdr=headers, body=body)
+        """
+        Perform a POST request.
+
+        :param target: the target URL
+        :param body: the message body
+        :returns: HTTP response object on success, None on error
+        """
+        headers = 'Content-Type: application/hap+json\r\n' + \
+                  'Content-Length: {len}\r\n'.format(len=len(body))
+        data = 'POST {tgt} HTTP/1.1\r\n{hdr}\r\n{body}'.format(tgt=target,
+                                                               hdr=headers,
+                                                               body=body)
 
         return self._handle_request(data)
 
     def _handle_request(self, data):
-        assert len(data) < 1024
+        """
+        Encrypt request data and send it.
+
+        :param data: data to encrypt and send
+        :returns: HTTP response object on success, None on error
+        """
+        if len(data) > 1024:
+            return None
+
         len_bytes = len(data).to_bytes(2, byteorder='little')
         cnt_bytes = self.c2a_counter.to_bytes(8, byteorder='little')
         self.c2a_counter += 1
@@ -77,6 +138,12 @@ class SecureHttp:
 
     @staticmethod
     def _parse(chunked_data):
+        """
+        Parse chunked HTTP data.
+
+        :param chunked_data: chunked HTTP data
+        :returns: reconstructed data
+        """
         splitter = b'\r\n'
         tmp = chunked_data.split(splitter, 1)
         length = int(tmp[0].decode(), 16)
@@ -88,9 +155,14 @@ class SecureHttp:
         return chunk + SecureHttp._parse(tmp[1])
 
     def _handle_response(self):
+        """
+        Handle an HTTP response and decrypt it.
+
+        :returns: HTTP response object
+        """
         # following the information from page 71 about HTTP Message splitting:
-        # The blocks start with 2 byte little endian defining the length of the encrypted data (max 1024 bytes)
-        # followed by 16 byte authTag
+        # The blocks start with 2 byte little endian defining the length of the
+        # encrypted data (max 1024 bytes) followed by 16 byte authTag.
         tmp = bytearray()
         result = bytearray()
         exp_len = 512
@@ -105,8 +177,8 @@ class SecureHttp:
             tmp += data
             length = int.from_bytes(tmp[0:2], 'little')
 
-            # if the the amount of data in tmp is not length + 2 bytes for length + 16 bytes for the tag, the block
-            # is not complete yet
+            # if the the amount of data in tmp is not length + 2 + 16, the
+            # block is not complete yet
             while len(tmp) >= length + 18:
                 tmp = tmp[2:]
 
@@ -120,14 +192,16 @@ class SecureHttp:
                 dec = crypto_aead_chacha20poly1305_ietf_decrypt(
                     bytes(block + tag),
                     length.to_bytes(2, byteorder='little'),
-                    bytes([0, 0, 0, 0]) + self.a2c_counter.to_bytes(8, byteorder='little'),
+                    bytes([0, 0, 0, 0]) +
+                    self.a2c_counter.to_bytes(8, byteorder='little'),
                     self.a2c_key)
                 if dec is not False:
                     result += dec
                 self.a2c_counter += 1
 
                 # check how long next block will be
-                if len(tmp) >= 2 and int.from_bytes(tmp[0:2], 'little') <= 1024:
+                if len(tmp) >= 2 and \
+                        int.from_bytes(tmp[0:2], 'little') <= 1024:
                     length = int.from_bytes(tmp[0:2], 'little')
                 else:
                     length = 0
@@ -137,18 +211,15 @@ class SecureHttp:
                 ret = parser.execute(result, len(result))
                 if ret == len(result) and parser.is_message_complete():
                     break
-            else:
-                if result.endswith(b'\r\n0\r\n\r\n'):
-                    break
+            elif result.endswith(b'\r\n0\r\n\r\n'):
+                break
 
-        #
-        #   I expected a full http response but the first real homekit accessory (Koogeek-P1) just replies with body
-        #   in chunked mode...
-        #
         if result.startswith(b'HTTP/1.1'):
-            r = http.client.HTTPResponse(SecureHttp.Wrapper(result))
+            r = http.client.HTTPResponse(self.SocketWrapper(result))
             r.begin()
             return r
         else:
+            # If the device just sends chunked data instead of a proper HTTP
+            # response, handle it.
             data = SecureHttp._parse(result)
             return self.HTTPResponseWrapper(data)

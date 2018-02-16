@@ -221,7 +221,7 @@ class HttpParser(object):
                 try:
                     to_parse = b("").join(self._buf)
                     ret = self._parse_headers(to_parse)
-                    if not ret:
+                    if type(ret) is bool and not ret:
                         return length
                     nb_parsed = nb_parsed + (len(to_parse) - ret)
                 except InvalidHeader as e:
