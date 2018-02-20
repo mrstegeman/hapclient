@@ -61,4 +61,5 @@ client.unpair()
 # Tests
 
 The code was tested with the following devices:
- * [iDevices Switch](https://store.idevicesinc.com/idevices-switch/)
+* [iDevices Switch](https://store.idevicesinc.com/idevices-switch/)
+* [Koogeek P1](https://www.koogeek.com/p-p1.html)
