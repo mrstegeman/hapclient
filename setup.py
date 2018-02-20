@@ -12,7 +12,7 @@ setup(
     classifiers=[],
     install_requires=[
         'hkdf',
-        'git+https://github.com/pyca/pynacl',
-        'git+https://github.com/mrstegeman/python-zeroconf',
+        'pynacl',
+        'zeroconf',
     ],
 )

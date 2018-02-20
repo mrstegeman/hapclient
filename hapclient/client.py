@@ -4,6 +4,8 @@ import http.client
 import json
 import uuid
 
+from .model.characteristics import CharacteristicTypes
+from .model.services import ServiceTypes
 from .protocol import get_session_keys, perform_pair_setup, remove_pairing
 from .secure_http import SecureHttp
 from .zeroconf import discover_homekit_devices, find_device_ip_and_port
@@ -47,13 +49,14 @@ class HapClient:
         return True
 
     @staticmethod
-    def discover():
+    def discover(timeout=1):
         """
         Discover all HAP devices on the network.
 
+        :param timeout: number of seconds after which to stop search
         :returns: a list of dicts, each containing device data
         """
-        return discover_homekit_devices()
+        return discover_homekit_devices(timeout=timeout)
 
     def identify(self):
         """
@@ -136,6 +139,13 @@ class HapClient:
                               controller_to_accessory_key)
         response = sec_http.get('/accessories')
         data = json.loads(response.read().decode())
+        for acc in data['accessories']:
+            for svc in acc['services']:
+                svc['type'] = ServiceTypes[svc['type']]
+
+                for char in svc['characteristics']:
+                    char['type'] = CharacteristicTypes[char['type']]
+
         conn.close()
 
         return data

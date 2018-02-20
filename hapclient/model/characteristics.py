@@ -1,7 +1,7 @@
 """Accessory characteristic types."""
 
 
-class _CharacteristicsTypes(object):
+class _CharacteristicTypes(object):
     """This data is taken from Apple-defined Characteristics on page 144."""
 
     ACCESSORY_PROPERTIES = 'A6'
@@ -265,11 +265,13 @@ class _CharacteristicsTypes(object):
         """
         if item_name in self._characteristics_rev:
             short = self._characteristics_rev[item_name]
+
         if item_name in self._characteristics:
             short = item_name
+
         medium = '0' * (8 - len(short)) + short
         long = medium + self.baseUUID
         return long
 
 
-CharacteristicsTypes = _CharacteristicsTypes()
+CharacteristicTypes = _CharacteristicTypes()

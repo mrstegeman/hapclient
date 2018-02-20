@@ -65,11 +65,13 @@ class _ServiceTypes(object):
 
         if item in self._services:
             return self._services[item].split('.')[-1]
+
         return 'Unknown Service: {i}'.format(i=orig_item)
 
     def get_uuid(self, item_name):
         if item_name not in self._services_rev:
             raise Exception('Unknown service name')
+
         short = self._services_rev[item_name]
         medium = '0' * (8 - len(short)) + short
         long = medium + self.baseUUID

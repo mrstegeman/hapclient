@@ -4,6 +4,8 @@ from socket import inet_ntoa
 from time import sleep
 from zeroconf import ServiceBrowser, Zeroconf
 
+from .model.categories import Categories
+
 
 class CollectingListener(object):
     """Listener for discovered services."""
@@ -44,7 +46,7 @@ class CollectingListener(object):
         return self.data
 
 
-def discover_homekit_devices():
+def discover_homekit_devices(timeout=1):
     """
     Search for HAP devices on the network.
 
@@ -53,7 +55,7 @@ def discover_homekit_devices():
     zeroconf = Zeroconf()
     listener = CollectingListener()
     browser = ServiceBrowser(zeroconf, '_hap._tcp.local.', listener)
-    sleep(1)
+    sleep(timeout)
 
     devices = []
     for info in listener.get_data():
@@ -68,7 +70,7 @@ def discover_homekit_devices():
             'pv': info.properties[b'pv'].decode(),
             's#': int(info.properties[b's#'].decode()),
             'sf': int(info.properties[b'sf'].decode()),
-            'ci': int(info.properties[b'ci'].decode()),
+            'ci': Categories[int(info.properties[b'ci'].decode())],
         }
         devices.append(device)
 
