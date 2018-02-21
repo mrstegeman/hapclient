@@ -65,7 +65,7 @@ class _ServiceTypes(object):
         orig_item = item
         if item.endswith(self.baseUUID):
             item = item.split('-', 1)[0]
-            item = item.lstrip('0')
+            item = item.lstrip('0').upper()
 
         if item in self._services:
             return self._services[item].split('.')[-1]

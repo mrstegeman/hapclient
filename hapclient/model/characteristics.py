@@ -253,7 +253,7 @@ class _CharacteristicTypes(object):
         orig_item = item
         if item.endswith(self.baseUUID):
             item = item.split('-', 1)[0]
-            item = item.lstrip('0')
+            item = item.lstrip('0').upper()
 
         if item in self._characteristics:
             return self._characteristics[item].split('.')[-1]
