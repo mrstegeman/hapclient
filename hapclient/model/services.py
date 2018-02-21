@@ -50,7 +50,7 @@ class _ServiceTypes(object):
     def __getitem__(self, item):
         if item.endswith(self.baseUUID):
             item = item.split('-', 1)[0]
-            item = item.lstrip('0')
+            item = item.lstrip('0').upper()
 
         if item in self._services:
             return self._services[item]
