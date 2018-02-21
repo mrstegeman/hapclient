@@ -48,6 +48,10 @@ class _ServiceTypes(object):
             {self._services[k]: k for k in self._services.keys()}
 
     def __getitem__(self, item):
+        if item.endswith(self.baseUUID):
+            item = item.split('-', 1)[0]
+            item = item.lstrip('0')
+
         if item in self._services:
             return self._services[item]
 

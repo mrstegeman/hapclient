@@ -230,6 +230,10 @@ class _CharacteristicTypes(object):
             {self._characteristics[k]: k for k in self._characteristics.keys()}
 
     def __getitem__(self, item):
+        if item.endswith(self.baseUUID):
+            item = item.split('-', 1)[0]
+            item = item.lstrip('0')
+
         if item in self._characteristics:
             return self._characteristics[item]
 
