@@ -1,6 +1,7 @@
 """Implement the secure HTTP protocol used by HomeKit."""
 
 from binascii import hexlify
+from http.client import HTTPException
 from nacl.bindings import (crypto_aead_chacha20poly1305_ietf_encrypt,
                            crypto_aead_chacha20poly1305_ietf_decrypt,
                            crypto_scalarmult)
@@ -34,7 +35,11 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
         TLV.kTLVType_Method: TLV.PairSetup
     })
 
-    connection.request('POST', '/pair-setup', request_tlv, headers)
+    try:
+        connection.request('POST', '/pair-setup', request_tlv, headers)
+    except (TimeoutError, HTTPException, OSError):
+        return None
+
     resp = connection.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
@@ -60,7 +65,11 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
         TLV.kTLVType_Proof: SrpClient.to_byte_array(client_proof),
     })
 
-    connection.request('POST', '/pair-setup', response_tlv, headers)
+    try:
+        connection.request('POST', '/pair-setup', response_tlv, headers)
+    except (TimeoutError, HTTPException, OSError):
+        return None
+
     resp = connection.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
@@ -132,7 +141,11 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
     }
     body = TLV.encode_dict(response_tlv)
 
-    connection.request('POST', '/pair-setup', body, headers)
+    try:
+        connection.request('POST', '/pair-setup', body, headers)
+    except (TimeoutError, HTTPException, OSError):
+        return None
+
     resp = connection.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
@@ -214,7 +227,11 @@ def get_session_keys(conn, pairing_data):
         TLV.kTLVType_PublicKey: bytes(ios_key.public_key),
     })
 
-    conn.request('POST', '/pair-verify', request_tlv, headers)
+    try:
+        conn.request('POST', '/pair-verify', request_tlv, headers)
+    except (TimeoutError, HTTPException, OSError):
+        return None
+
     resp = conn.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
@@ -312,7 +329,11 @@ def get_session_keys(conn, pairing_data):
     })
 
     # 12) send to accessory
-    conn.request('POST', '/pair-verify', request_tlv, headers)
+    try:
+        conn.request('POST', '/pair-verify', request_tlv, headers)
+    except (TimeoutError, HTTPException, OSError):
+        return None
+
     resp = conn.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 

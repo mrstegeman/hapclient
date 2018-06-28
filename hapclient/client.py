@@ -71,7 +71,12 @@ class HapClient:
             return False
 
         conn = http.client.HTTPConnection(self.address, port=self.port)
-        conn.request('POST', '/identify')
+
+        try:
+            conn.request('POST', '/identify')
+        except (TimeoutError, http.client.HTTPException, OSError):
+            return None
+
         status = conn.getresponse().code
         conn.close()
 

@@ -145,7 +145,12 @@ class SecureHttp:
             len_bytes,
             bytes([0, 0, 0, 0]) + cnt_bytes,
             self.c2a_key)
-        self.sock.send(len_bytes + ciphertext)
+
+        try:
+            self.sock.send(len_bytes + ciphertext)
+        except OSError:
+            return None
+
         return self._handle_response()
 
     @staticmethod
