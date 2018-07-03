@@ -59,6 +59,12 @@ def discover_homekit_devices(timeout=1):
 
     devices = []
     for info in listener.get_data():
+        if b'ff' not in info.properties:
+            info.properties[b'ff'] = b'0'
+
+        if b'pv' not in info.properties:
+            info.properties[b'pv'] = b'1.0'
+
         device = {
             'name': info.name,
             'address': inet_ntoa(info.address),
