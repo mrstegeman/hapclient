@@ -74,10 +74,10 @@ class HapClient:
 
         try:
             conn.request('POST', '/identify')
+            status = conn.getresponse().code
         except (TimeoutError, http.client.HTTPException, OSError):
             return None
 
-        status = conn.getresponse().code
         conn.close()
 
         if status == 204:

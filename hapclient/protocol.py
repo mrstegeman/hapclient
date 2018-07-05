@@ -37,10 +37,10 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
 
     try:
         connection.request('POST', '/pair-setup', request_tlv, headers)
+        resp = connection.getresponse()
     except (TimeoutError, HTTPException, OSError):
         return None
 
-    resp = connection.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
     # Step #3 ios --> accessory (send SRP verify request) (see page 41)
@@ -67,10 +67,10 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
 
     try:
         connection.request('POST', '/pair-setup', response_tlv, headers)
+        resp = connection.getresponse()
     except (TimeoutError, HTTPException, OSError):
         return None
 
-    resp = connection.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
     # Step #5 ios --> accessory (exchange request) (see page 43)
@@ -143,10 +143,10 @@ def perform_pair_setup(connection, pin, ios_pairing_id):
 
     try:
         connection.request('POST', '/pair-setup', body, headers)
+        resp = connection.getresponse()
     except (TimeoutError, HTTPException, OSError):
         return None
 
-    resp = connection.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
     # Step #7 ios (verification) (page 47)
@@ -229,10 +229,10 @@ def get_session_keys(conn, pairing_data):
 
     try:
         conn.request('POST', '/pair-verify', request_tlv, headers)
+        resp = conn.getresponse()
     except (TimeoutError, HTTPException, OSError):
         return None
 
-    resp = conn.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
     # Step #3 ios --> accessory (send SRP verify request)  (page 49)
@@ -331,10 +331,10 @@ def get_session_keys(conn, pairing_data):
     # 12) send to accessory
     try:
         conn.request('POST', '/pair-verify', request_tlv, headers)
+        resp = conn.getresponse()
     except (TimeoutError, HTTPException, OSError):
         return None
 
-    resp = conn.getresponse()
     response_tlv = TLV.decode_bytes(resp.read())
 
     # Post Step #4 verification (page 51)

@@ -137,7 +137,7 @@ class HttpParser(object):
         return body
 
     def recv_body_into(self, barray):
-        """ Receive the last chunk of the parsed bodyand store the data
+        """ Receive the last chunk of the parsed body and store the data
         in a buffer rather than creating a new string. """
         l = len(barray)
         body = b("").join(self._body)
@@ -312,7 +312,7 @@ class HttpParser(object):
         self._version = (int(match.group(1)), int(match.group(2)))
 
         # update environ
-        if hasattr(self,'environ'):
+        if hasattr(self,'_environ'):
             self._environ.update({
                 "PATH_INFO": self._path,
                 "QUERY_STRING": self._query_string,
@@ -323,7 +323,12 @@ class HttpParser(object):
     def _parse_headers(self, data):
         idx = data.find(b("\r\n\r\n"))
         if idx < 0: # we don't have all headers
-            return False
+            if self._status_code == 204 and data == b("\r\n"):
+                self._buf = []
+                self.__on_headers_complete = True
+                return 0
+            else:
+                return False
 
         # Split lines on \r\n keeping the \r\n on each line
         lines = [bytes_to_str(line) + "\r\n" for line in
@@ -394,7 +399,10 @@ class HttpParser(object):
         return len(rest)
 
     def _parse_body(self):
-        if not self._chunked:
+        if self._status_code == 204 and len(self._buf) == 0:
+            self.__on_message_complete = True
+            return
+        elif not self._chunked:
             body_part = b("").join(self._buf)
             self._clen_rest -= len(body_part)
 
