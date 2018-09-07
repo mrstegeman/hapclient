@@ -107,3 +107,5 @@ ENV/
 /.idea/vcs.xml
 /tmp
 /.idea/homekit_python.iml
+
+*.swp
