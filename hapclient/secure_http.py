@@ -121,7 +121,7 @@ class SecureHttp:
 
         request = 'POST {} HTTP/1.1\r\n'.format(target)
         headers = 'Content-Type: {}\r\n'.format(ctype)
-        headers += 'Content-Length: {}\r\n\n'.format(len(body))
+        headers += 'Content-Length: {}\r\n\r\n'.format(len(body))
 
         data = request.encode() + headers.encode() + body
 
