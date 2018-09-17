@@ -4,14 +4,14 @@ With this code it is possible to implement a HomeKit Controller. This code was o
 
 **Limitations**
 
- * This code only works with HomeKit IP Accessories. no Bluetooth LE Accessories (yet)!
- * No reaction to events whatsoever.
+* This code only works with HomeKit IP Accessories.
+* The events interface is not implemented.
 
-The code presented in this repository was created based on release R1 from 2017-06-07.
+The code in this repository was created based on release R1 from 2017-06-07.
 
 # Installation
 
-Use **pip3** to install the package:
+Use `pip3` to install the package:
 
 ```bash
 pip3 install --user hapclient
